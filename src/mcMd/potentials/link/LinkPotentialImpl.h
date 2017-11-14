@@ -9,7 +9,7 @@
 */
 
 #include <mcMd/potentials/bond/BondPotential.h>  // base class
-#include <mcMd/simulation/SubSystem.h>           // base class
+#include <mcMd/simulation/SystemInterface.h>           // base class
 #include <mcMd/links/LinkMaster.h>               // member
 #include <util/global.h>
 
@@ -36,7 +36,7 @@ namespace McMd
    * \ingroup McMd_Link_Module
    */
    template <class Interaction>
-   class LinkPotentialImpl : public BondPotential, public SubSystem
+   class LinkPotentialImpl : public BondPotential, public SystemInterface
    {
 
    public:
@@ -122,35 +122,19 @@ namespace McMd
       virtual double atomEnergy(const Atom& atom) const;
 
       /**
-      * Return total link potential energy of the System.
-      */
-      virtual double energy() const;
-
-      /**
       * Compute and increment link forces for all atoms.
       */
       virtual void addForces();
 
       /**
-      * Compute total nonbonded pressure
-      *
-      * \param stress (output) pressure.
+      * Calculate and store pair energy for this System.
       */
-      virtual void computeStress(double& stress) const;
+      virtual void computeEnergy();
 
       /**
-      * Compute x, y, z nonbonded pressures.
-      *
-      * \param stress (output) pressures.
+      * Compute and store the total nonbonded pressure
       */
-      virtual void computeStress(Util::Vector& stress) const;
-
-      /**
-      * Compute stress tensor.
-      *
-      * \param stress (output) pressures.
-      */
-      virtual void computeStress(Util::Tensor& stress) const;
+      virtual void computeStress();
 
       //@}
 
@@ -186,10 +170,11 @@ namespace McMd
 #include <mcMd/simulation/System.h> 
 #include <mcMd/simulation/Simulation.h> 
 #include <mcMd/simulation/stress.h>
-#include <mcMd/species/Species.h>
-#include <util/boundary/Boundary.h> 
 #include <mcMd/links/Link.h>
 
+#include <simp/species/Species.h>
+
+#include <util/boundary/Boundary.h> 
 #include <util/space/Dimension.h>
 #include <util/space/Vector.h>
 #include <util/space/Tensor.h>
@@ -201,6 +186,7 @@ namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /* 
    * Default constructor.
@@ -208,7 +194,7 @@ namespace McMd
    template <class Interaction>
    LinkPotentialImpl<Interaction>::LinkPotentialImpl(System& system)
     : BondPotential(),
-      SubSystem(system),
+      SystemInterface(system),
       interactionPtr_(0),
       linkMasterPtr_(&system.linkMaster()),
       isCopy_(false)
@@ -224,7 +210,7 @@ namespace McMd
    LinkPotentialImpl<Interaction>::LinkPotentialImpl(
                          LinkPotentialImpl<Interaction>& other)
     : BondPotential(),
-      SubSystem(other.system()),
+      SystemInterface(other.system()),
       interactionPtr_(&other.interaction()),
       linkMasterPtr_(&other.system().linkMaster()),
       isCopy_(true)
@@ -302,26 +288,6 @@ namespace McMd
    }
 
    /* 
-   * Return total link energy.
-   */
-   template <class Interaction>
-   double LinkPotentialImpl<Interaction>::energy() const
-   {
-      double rsq;
-      double energy = 0.0;
-      Link*  linkPtr;
-      int    iLink, nLink;
-      nLink = linkMasterPtr_->nLink();
-      for (iLink = 0; iLink < nLink; ++iLink) {
-         linkPtr = &(linkMasterPtr_->link(iLink));
-         rsq = boundary().distanceSq(linkPtr->atom0().position(), 
-                                     linkPtr->atom1().position());
-         energy += interaction().energy(rsq, linkPtr->typeId());
-      }
-      return energy;
-   }
-
-   /* 
    * Add link forces to all atomic forces.
    */
    template <class Interaction>
@@ -344,6 +310,26 @@ namespace McMd
          atom0Ptr->force() += force;
          atom1Ptr->force() -= force;
       }
+   }
+
+   /* 
+   * Return total link energy.
+   */
+   template <class Interaction>
+   void LinkPotentialImpl<Interaction>::computeEnergy()
+   {
+      double rsq;
+      double energy = 0.0;
+      Link* linkPtr;
+      int iLink, nLink;
+      nLink = linkMasterPtr_->nLink();
+      for (iLink = 0; iLink < nLink; ++iLink) {
+         linkPtr = &(linkMasterPtr_->link(iLink));
+         rsq = boundary().distanceSq(linkPtr->atom0().position(), 
+                                     linkPtr->atom1().position());
+         energy += interaction().energy(rsq, linkPtr->typeId());
+      }
+      energy_.set(energy);
    }
 
    /* 
@@ -377,19 +363,18 @@ namespace McMd
       normalizeStress(stress);
    }
 
+   /*
+   * Compute all short-range pair contributions to stress.
+   */
    template <class Interaction>
-   void LinkPotentialImpl<Interaction>::computeStress(double& stress) const
-   {  computeStressImpl(stress); }
+   void LinkPotentialImpl<Interaction>::computeStress()
+   {
+      Tensor stress;
+      computeStressImpl(stress);
 
-   template <class Interaction>
-   void LinkPotentialImpl<Interaction>::computeStress(Util::Vector& stress) 
-        const
-   {  computeStressImpl(stress); }
-
-   template <class Interaction>
-   void LinkPotentialImpl<Interaction>::computeStress(Util::Tensor& stress) 
-        const
-   {  computeStressImpl(stress); }
+      // Set value of Setable<double> energy_ 
+      stress_.set(stress);
+   }
 
    template <class Interaction>
    inline Interaction& LinkPotentialImpl<Interaction>::interaction()

@@ -3,6 +3,7 @@
 
 #include <mcMd/potentials/pair/MdPairPotential.h>
 #include <mcMd/potentials/pair/McPairPotentialImpl.h>
+#include <mcMd/simulation/stress.h>
 #include <mcMd/mdSimulation/MdSystem.h>
 #include <mcMd/chemistry/AtomType.h>
 #include <util/containers/Array.h>
@@ -10,8 +11,8 @@
 #include <util/misc/Setable.h>
 #include <util/global.h>
 
-#include <mcMd/potentials/coulomb/EwaldInteraction.h>
 #include <mcMd/potentials/coulomb/EwaldRSpaceAccumulator.h>
+#include <simp/interaction/coulomb/EwaldInteraction.h>
 
 namespace Util
 {
@@ -21,13 +22,10 @@ namespace Util
 namespace McMd
 {
 
-   using namespace Util;
-
    class MdSystem;
-   class EwaldRSpaceAccumulator;
-   class EwaldInteraction;
-   class MdEwaldPotential;
-   class MdPMEPotential;
+
+   using namespace Util;
+   using namespace Simp;
 
    /**
    * Implementation of a pair potential for a charged system.
@@ -43,6 +41,8 @@ namespace McMd
    * to the stress are shared with the associated CoulombPotential
    * object, and are publically accessible through functions of that 
    * object.
+   *
+   * \ingroup McMd_Pair_Module
    */
    template <class Interaction>
    class MdEwaldPairPotentialImpl : public MdPairPotential
@@ -145,21 +145,13 @@ namespace McMd
       /// \name Global force and energy calculators
       //@{
 
-
        // Force evaluation, which adds both types of pair force.
       virtual void addForces();
-
-      /** 
-      * Functions computeEnergy() and computeStress compute both
-      * non-Coulombic pair and short-range coulombic pair energy
-      * or stress contributions, respectively, but stores them in
-      * in different accumulator variables.
-      */
 
       /**
       * Unset both energy accumulators.
       */
-      void unsetEnergy();
+      virtual void unsetEnergy();
 
       /**
       * Compute and store all short-range pair energies.
@@ -169,7 +161,7 @@ namespace McMd
       /**
       * Unset both stress accumulators.
       */
-      void unsetStress();
+      virtual void unsetStress();
 
       /**
       * Compute and store all short-range pair stress contributions.
@@ -178,36 +170,27 @@ namespace McMd
 
       //@}
 
-      double rSpaceEnergy() const
-      { return rSpaceAccumulatorPtr_->rSpaceEnergy_.value(); }
-
-      // Get non-coulombic pair stress.
-      Tensor stress()
-      { return pairStress_.value(); }
-
-      // Get non-coulombic pair pressure.
-      double pressure();
-
    private:
 
       // Pointer to non-Coulombic pair interaction
       Interaction* pairPtr_;
 
-      // Pointers to Ewald Coulomb interaction (owned by Coulomb potential)
+      // Pointer to Ewald Coulomb interaction (owned by MdCoulombPotential)
       EwaldInteraction* ewaldInteractionPtr_;
 
-      // Pointer to EwaldRSpaceAccumulator (owned by Coulomb potential)
+      // Pointer to EwaldRSpaceAccumulator (owned by MdCoulombPotential)
       EwaldRSpaceAccumulator* rSpaceAccumulatorPtr_;
 
+      // Pointer to array of AtomType objects (contain mass and charge)
       const Array<AtomType>* atomTypesPtr_;
 
-      // Non-Coulomb pair accumulators
-      Setable<Tensor> pairStress_; 
+      // True iff this is a copy of an MC pair potential (for hybrid MC).
+      bool isCopy_;
 
-      // Prefactor for coulomb part.
-      double fourpiepsi_;
+      // Get an AtomType
+      const AtomType& atomType(int i)
+      {  return (*atomTypesPtr_)[i]; }
 
-      bool            isCopy_;
    };
 }
 
@@ -223,7 +206,9 @@ namespace McMd
 #include <util/accumulators/setToZero.h>
 #include <mcMd/potentials/coulomb/MdCoulombPotential.h>
 #include <mcMd/potentials/coulomb/MdEwaldPotential.h>
-#include <mcMd/potentials/coulomb/MdPMEPotential.h>
+#ifdef SIMP_FFTW
+#include <mcMd/potentials/coulomb/MdSpmePotential.h>
+#endif
 #include <fstream>
 
 namespace McMd
@@ -247,26 +232,29 @@ namespace McMd
          MdCoulombPotential* kspacePtr;
          kspacePtr = &system.coulombPotential();
  
-         // Dynamic cast to a pointer to MdEwaldPotential or MdPMEPotential.
+         // Dynamic cast to a pointer to MdEwaldPotential or MdSpmePotential.
          if (system.coulombStyle() == "Ewald"){
             MdEwaldPotential* ewaldPtr;
             ewaldPtr = dynamic_cast<MdEwaldPotential*>(kspacePtr);
             ewaldInteractionPtr_  = &ewaldPtr->ewaldInteraction();
             rSpaceAccumulatorPtr_ = &ewaldPtr->rSpaceAccumulator();
-         } else  
-         if (system.coulombStyle() == "PME"){
-            MdPMEPotential* ewaldPtr; 
-            ewaldPtr = dynamic_cast<MdPMEPotential*>(kspacePtr);
+         }
+         #ifdef SIMP_FFTW 
+         else  
+         if (system.coulombStyle() == "SPME"){
+            MdSpmePotential* ewaldPtr; 
+            ewaldPtr = dynamic_cast<MdSpmePotential*>(kspacePtr);
             ewaldInteractionPtr_  = &ewaldPtr->ewaldInteraction();
             rSpaceAccumulatorPtr_ = &ewaldPtr->rSpaceAccumulator();
-         } else {
+         }
+         #endif 
+         else {
             UTIL_THROW("Unrecognized coulomb style"); 
          }
+         UTIL_CHECK(rSpaceAccumulatorPtr_);
+         rSpaceAccumulatorPtr_->setPairPotential(*this);
  
          pairPtr_ = new Interaction;
-         // Pass address of MdEwaldPotential to EwaldPair interaction.
-         // Note: Uses implicit cast of MdEwaldPotential to its
-         // EwaldParameters base class.
    }
 
    /*
@@ -308,8 +296,6 @@ namespace McMd
       // Initialize the PairList 
       pairList_.initialize(simulation().atomCapacity(), cutoff);
 
-      //Initialize prefactor for coulomb part.
-      fourpiepsi_ = 1.0 / (4.0*Constants::Pi*ewaldInteractionPtr_->epsilon()) ; 
    }
 
    /*
@@ -330,8 +316,6 @@ namespace McMd
                  pairPtr_->maxPairCutoff())
       loadParamComposite(ar, pairList_);
 
-      //Initialize prefactor for coulomb part.
-      fourpiepsi_ = 1.0 / (4.0*Constants::Pi*ewaldInteractionPtr_->epsilon()) ; 
    }
 
    /*
@@ -390,6 +374,8 @@ namespace McMd
    template <class Interaction>
    void MdEwaldPairPotentialImpl<Interaction>::addForces()
    {
+      UTIL_CHECK(ewaldInteractionPtr_);
+
       // Update PairList if necessary
       if (!isPairListCurrent()) {
          buildPairList();
@@ -433,19 +419,24 @@ namespace McMd
    */
    template <class Interaction>
    void MdEwaldPairPotentialImpl<Interaction>::unsetEnergy()
-   { 
+   {
+      UTIL_CHECK(rSpaceAccumulatorPtr_);
+      // Unset non-coulomb pair energy (inherited from EnergyCalculator). 
       energy_.unset(); 
+      // Unset coulomb r-space energy.
       rSpaceAccumulatorPtr_->rSpaceEnergy_.unset(); 
    }
 
    /*
    * Compute and store pair interaction energy.
-   * Does nothing if energy is already set.
    */
    template <class Interaction>
    void MdEwaldPairPotentialImpl<Interaction>::computeEnergy()
    {
-      // Update PairList if necessary
+      UTIL_CHECK(ewaldInteractionPtr_);
+      UTIL_CHECK(rSpaceAccumulatorPtr_);
+
+      // Update PairList iff necessary
       if (!isPairListCurrent()) {
          buildPairList();
       }
@@ -490,7 +481,8 @@ namespace McMd
    template <class Interaction>
    void MdEwaldPairPotentialImpl<Interaction>::unsetStress()
    { 
-      pairStress_.unset(); 
+      UTIL_CHECK(rSpaceAccumulatorPtr_);
+      stress_.unset(); 
       rSpaceAccumulatorPtr_->rSpaceStress_.unset(); 
    }
 
@@ -500,12 +492,17 @@ namespace McMd
    template <class Interaction>
    void MdEwaldPairPotentialImpl<Interaction>::computeStress()
    {
-      Tensor pStress;  // Non-Coulomb pair stress
+      UTIL_CHECK(ewaldInteractionPtr_);
+      UTIL_CHECK(rSpaceAccumulatorPtr_);
+      UTIL_CHECK(atomTypesPtr_);
+
+      Tensor pStress;  // Non-Coulombic (e.g., LJ) pair stress
       Tensor cStress;  // Short-range Coulomb pair stress
       Vector dr;
       Vector force;
       double rsq;
       double qProduct;
+      double forceOverR;
       double ewaldCutoffSq = ewaldInteractionPtr_->rSpaceCutoffSq();
       PairIterator iter;
       Atom* atom1Ptr;
@@ -517,9 +514,9 @@ namespace McMd
          buildPairList();
       }
 
-      // Set all stress accumulator tensors to zero.
-      setToZero(pStress);
-      setToZero(cStress);
+      // Set stress accumulator tensors to zero.
+      pStress.zero();
+      cStress.zero();
 
       // Loop over nonbonded neighbor pairs
       for (pairList_.begin(iter); iter.notEnd(); ++iter) {
@@ -527,22 +524,24 @@ namespace McMd
          rsq = boundary().
                distanceSq(atom0Ptr->position(), atom1Ptr->position(), dr);
 
+
          if (rsq < ewaldCutoffSq) {
             type0 = atom0Ptr->typeId();
             type1 = atom1Ptr->typeId();
 
             // Non-Coulomb stress
             if (rsq < pairPtr_->cutoffSq(type0, type1)) {
-               force  = dr;
+               force = dr;
                force *= pairPtr_->forceOverR(rsq, type0, type1);
                incrementPairStress(force, dr, pStress);
             }
 
             // Short-range Coulomb stress 
-            qProduct =  (*atomTypesPtr_)[type0].charge();
+            qProduct  = (*atomTypesPtr_)[type0].charge();
             qProduct *= (*atomTypesPtr_)[type1].charge();
             force = dr;
-            force *= ewaldInteractionPtr_->rSpaceForceOverR(rsq, qProduct);
+            forceOverR = ewaldInteractionPtr_->rSpaceForceOverR(rsq, qProduct);
+            force *= forceOverR;
             incrementPairStress(force, dr, cStress);
          }
       }
@@ -553,7 +552,7 @@ namespace McMd
       normalizeStress(pStress);
       normalizeStress(cStress);
 
-      pairStress_.set(cStress);
+      stress_.set(pStress);
       rSpaceAccumulatorPtr_->rSpaceStress_.set(cStress);
    }
 

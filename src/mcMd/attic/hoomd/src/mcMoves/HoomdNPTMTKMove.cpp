@@ -12,7 +12,7 @@
 
 #include <mcMd/mcSimulation/McSystem.h>
 #include <mcMd/simulation/Simulation.h>
-#include <mcMd/species/Species.h>
+#include <simp/species/Species.h>
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Atom.h>
 #include <mcMd/potentials/pair/McPairPotential.h>
@@ -133,7 +133,7 @@ namespace McMd
       // register pair and bond forces in Integrator
       integratorSPtr_->addForceCompute(pairForceSPtr_);
       integratorSPtr_->addForceCompute(bondForceSPtr_);
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       if (implementExternalPotential_)
          integratorSPtr_->addForceCompute(externalForceSPtr_);
       #endif

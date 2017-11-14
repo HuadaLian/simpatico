@@ -9,6 +9,9 @@
 */
 
 #include <util/param/ParamComposite.h>
+#include <mcMd/potentials/misc/EnergyCalculator.h>   // base class
+#include <mcMd/potentials/misc/StressCalculator.h>   // base class
+
 #include <util/random/Random.h>
 #include <string>
 
@@ -30,7 +33,9 @@ namespace McMd
    *
    * \ingroup McMd_Angle_Module
    */
-   class AnglePotential : public ParamComposite
+   class AnglePotential : public ParamComposite,
+                         public EnergyCalculator, public StressCalculator
+   
    {
 
    public:
@@ -56,6 +61,9 @@ namespace McMd
       */
       virtual double energy(double cosTheta, int type) const = 0;
  
+      // Prevent hiding of inherited function energy();
+      using EnergyCalculator::energy;
+    
       /**
       * Returns forces along two bonds at the angle, for use in MD and stress
       * calculation.
@@ -132,8 +140,9 @@ namespace McMd
       /**
       * Calculate the covalent bond energy for one Atom.
       *
-      * Default method throws an exception.This allows testing of subclasses 
-      * that only work for MD simulation, and crash gracefully if used for MC.
+      * Default implementation throws an exception. This allows testing of 
+      * subclasses that only work for MD simulation, and crash gracefully 
+      * if used for MC.
       *
       * \param  atom Atom object of interest
       * \return bond potential energy of atom
@@ -153,35 +162,8 @@ namespace McMd
       virtual void addForces()
       {  UTIL_THROW("Unimplemented method"); }
 
-      /**
-      * Calculate the total angle potential energy for the System.
-      */
-      virtual double energy() const = 0;
-
-      /**
-      * Compute total angle potential isotropic pressure contribution.
-      *
-      * \param stress (output) pressure.
-      */
-      virtual void computeStress(double& stress) const = 0;
-
-      /**
-      * Compute x, y, z angle potential pressure components.
-      *
-      * \param stress (output) pressure components.
-      */
-      virtual void computeStress(Util::Vector& stress) const = 0;
-
-      /**
-      * Compute angle potential stress tensor contribution.
-      *
-      * \param stress (output) stress tensor contribution.
-      */
-      virtual void computeStress(Util::Tensor& stress) const = 0;
-    
       //@}
    };
 
 }
-
 #endif

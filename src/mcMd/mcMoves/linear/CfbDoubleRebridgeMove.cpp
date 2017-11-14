@@ -8,20 +8,23 @@
 #include "CfbDoubleRebridgeMove.h"
 #include <mcMd/mcSimulation/McSystem.h>
 #include <mcMd/simulation/Simulation.h>
-#ifndef INTER_NOPAIR
+#ifndef SIMP_NOPAIR
 #include <mcMd/potentials/pair/McPairPotential.h>
 #endif
-#include <mcMd/species/Linear.h>
-#include <util/boundary/Boundary.h>
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Bond.h>
 #include <mcMd/chemistry/Atom.h>
+
+#include <simp/species/Linear.h>
+
+#include <util/boundary/Boundary.h>
 #include <util/global.h>
 
 namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /* 
    * Constructor
@@ -31,7 +34,7 @@ namespace McMd
       speciesId_(-1),
       nRegrow_(-1),
       bridgeLength_(0)
-   { setClassName("CfbDoubleRebridgeMove"); } 
+   {  setClassName("CfbDoubleRebridgeMove"); } 
    
    /* 
    * Read parameters speciesId, nRegrow, and nTrial
@@ -193,12 +196,12 @@ namespace McMd
          swapPos = thisPtr->position();
          //system().moveAtom(*thisPtr, tempPtr->position());
          thisPtr->position() = tempPtr->position();
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          system().pairPotential().updateAtomCell(*thisPtr);
          #endif
          //system().moveAtom(*tempPtr, swapPos);
          tempPtr->position() = swapPos;
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          system().pairPotential().updateAtomCell(*tempPtr);
          #endif
 
@@ -242,12 +245,12 @@ namespace McMd
          for (i = 0; i < nRegrow_; ++i) {
             //system().moveAtom(*thisPtr, iOldPos_[i]);
             thisPtr->position() = iOldPos_[i];
-            #ifndef INTER_NOPAIR
+            #ifndef SIMP_NOPAIR
             system().pairPotential().updateAtomCell(*thisPtr);
             #endif
             //system().moveAtom(*tempPtr, jOldPos_[i]);
             tempPtr->position() = jOldPos_[i];
-            #ifndef INTER_NOPAIR
+            #ifndef SIMP_NOPAIR
             system().pairPotential().updateAtomCell(*tempPtr);
             #endif
 
@@ -262,12 +265,12 @@ namespace McMd
             swapPos = thisPtr->position();
             //system().moveAtom(*thisPtr, tempPtr->position());
             thisPtr->position() = tempPtr->position();
-            #ifndef INTER_NOPAIR
+            #ifndef SIMP_NOPAIR
             system().pairPotential().updateAtomCell(*thisPtr);
             #endif
             //system().moveAtom(*tempPtr, swapPos);
             tempPtr->position() = swapPos;
-            #ifndef INTER_NOPAIR
+            #ifndef SIMP_NOPAIR
             system().pairPotential().updateAtomCell(*tempPtr);
             #endif
 

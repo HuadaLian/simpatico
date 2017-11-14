@@ -1,4 +1,4 @@
-#ifndef  INTER_NOPAIR
+#ifndef  SIMP_NOPAIR
 /*
 * Simpatico - Simulation Package for Polymeric and Molecular Liquids
 *
@@ -12,7 +12,7 @@
 #include <mcMd/potentials/pair/MdPairPotential.h>
 #include <mcMd/neighbor/PairList.h>
 #include <mcMd/neighbor/PairIterator.h>
-#include <mcMd/species/Species.h>
+#include <simp/species/Species.h>
 #include <util/format/Dbl.h>
 #include <util/format/Int.h>
 #include <util/archives/Serializable_includes.h>

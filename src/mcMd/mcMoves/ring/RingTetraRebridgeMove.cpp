@@ -8,14 +8,14 @@
 #include "RingTetraRebridgeMove.h"
 #include <mcMd/mcSimulation/McSystem.h>
 #include <mcMd/simulation/Simulation.h>
-#ifndef INTER_NOPAIR
+#ifndef SIMP_NOPAIR
 #include <mcMd/potentials/pair/McPairPotential.h>
 #endif
-#include <mcMd/species/Ring.h>
-#include <util/boundary/Boundary.h>
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Bond.h>
 #include <mcMd/chemistry/Atom.h>
+#include <simp/species/Ring.h>
+#include <util/boundary/Boundary.h>
 #include <util/global.h>
 
 namespace McMd
@@ -190,13 +190,13 @@ namespace McMd
 
             //system().moveAtom(*lTmp, hTmp->position());
             lTmp->position() = hTmp->position();
-            #ifndef INTER_NOPAIR
+            #ifndef SIMP_NOPAIR
             system().pairPotential().updateAtomCell(*lTmp);
             #endif
 
             //system().moveAtom(*hTmp, swapV);
             hTmp->position() = swapV;
-            #ifndef INTER_NOPAIR
+            #ifndef SIMP_NOPAIR
             system().pairPotential().updateAtomCell(*hTmp);
             #endif
 

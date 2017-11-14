@@ -9,11 +9,11 @@
 BLD_DIR_REL =..
 include $(BLD_DIR_REL)/config.mk
 include $(BLD_DIR)/util/config.mk
-include $(BLD_DIR)/inter/config.mk
+include $(BLD_DIR)/simp/config.mk
 include $(BLD_DIR)/mcMd/config.mk
 include $(SRC_DIR)/mcMd/patterns.mk
 include $(SRC_DIR)/util/sources.mk
-include $(SRC_DIR)/inter/sources.mk
+include $(SRC_DIR)/simp/sources.mk
 include $(SRC_DIR)/mcMd/sources.mk
 
 #-----------------------------------------------------------------------
@@ -49,6 +49,7 @@ ifeq ($(BLD_DIR),$(SRC_DIR))
 	rm -f perturb/mcSystem/McPerturbationFactory.cpp
 	rm -f potentials/angle/AngleFactory.cpp
 	rm -f potentials/bond/BondFactory.cpp
+	rm -f potentials/coulomb/CoulombFactory.cpp
 	rm -f potentials/dihedral/DihedralFactory.cpp
 	rm -f potentials/external/ExternalFactory.cpp
 	rm -f potentials/link/LinkFactory.cpp
@@ -56,15 +57,17 @@ ifeq ($(BLD_DIR),$(SRC_DIR))
 	rm -f species/SpeciesFactory.cpp
 	rm -f trajectoryIos/TrajectoryIoFactory.cpp
 	rm -f generators/generatorFactory.cpp
+	rm -f mdSim.cpp
+	rm -f mcSim.cpp
 endif
 
 # Executable targets
 
 $(MCSIM_EXE): $(MCSIM).o $(LIBS)
-	$(CXX) $(LDFLAGS) -o $(MCSIM_EXE) $(MCSIM).o $(LIBS)
+	$(CXX) -o $(MCSIM_EXE) $(MCSIM).o $(LIBS) $(LDFLAGS)
  
 $(MDSIM_EXE): $(MDSIM).o $(LIBS)
-	$(CXX) $(LDFLAGS) -o $(MDSIM_EXE) $(MDSIM).o $(LIBS)
+	$(CXX) -o $(MDSIM_EXE) $(MDSIM).o $(LIBS) $(LDFLAGS)
 
 # Short names for executable targets (for convenience)
  
@@ -78,7 +81,7 @@ mdSim:
 # Include dependency files
 
 -include $(util_OBJS:.o=.d)
--include $(inter_OBJS:.o=.d)
+-include $(simp_OBJS:.o=.d)
 -include $(mcMd_OBJS:.o=.d)
 -include $(MDSIM).d 
 -include $(MCSIM).d 

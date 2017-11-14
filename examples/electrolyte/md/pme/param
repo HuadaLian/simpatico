@@ -28,25 +28,23 @@ MdSimulation{
   MdSystem{
     pairStyle                           LJPair
     bondStyle                     HarmonicBond
-    coulombStyle                           PME 
+    coulombStyle                          SPME 
     CoulombPotential{
       epsilon               1.000000000000e+00
       alpha                 1.000000000000e+00
       rSpaceCutoff          3.000000000000e+00
-      xgridSize                            128
-      ygridSize                            128
-      zgridSize                            128
+      gridDimensions             32    32   32
     }
     MdPairPotential{
-      epsilon               1.000000000000e+00 1.300000000000e+00
-                            1.300000000000e+00 1.000000000000e+00
+      epsilon               1.000000000000e+00 1.000000000000e+00
+                            1.000000000000e+00 1.000000000000e+00
       sigma                 1.000000000000e+00 1.000000000000e+00
                             1.000000000000e+00 1.000000000000e+00
       cutoff                1.122460000000e+00 1.122460000000e+00
                             1.122460000000e+00 1.122460000000e+00 
       PairList{
         atomCapacity                      1000
-        pairCapacity                      1000000
+        pairCapacity                   1000000
         skin                2.500000000000e-01
       }
     }
@@ -71,17 +69,14 @@ MdSimulation{
       interval                            100
     }
 
-    MdEnergyOutput{
+    MdEnergyAnalyzer{
       interval                            100
-      outputFileName                    energy
+      outputFileName                   energy
+      nSamplePerBlock                       1
     }
  
-    ConfigWriter{
-      interval                            4000
-      outputFileName                   config. 
-    }
   }
-  saveInterval                            5000
+  saveInterval                             100
   saveFileName                         restart
 }
 

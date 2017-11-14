@@ -9,14 +9,15 @@
 #include "Generator.h"
 #include <mcMd/simulation/Simulation.h>
 #include <mcMd/simulation/System.h>
-#include <mcMd/species/Species.h>
 #include <mcMd/species/SpeciesMutator.h>
 #include <mcMd/neighbor/CellList.h>
+#include <simp/species/Species.h>
 
 namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /*
    * Constructor.
@@ -35,7 +36,7 @@ namespace McMd
    Generator::~Generator()
    {}
 
-   #ifdef INTER_BOND
+   #ifdef SIMP_BOND
    /*
    * Set bond potential for molecules that have bonds.
    */
@@ -47,7 +48,7 @@ namespace McMd
    * Attempt to place an atom.
    */
    bool Generator::attemptPlaceAtom(Atom& atom,
-                             const DArray<double>& diameters, 
+                             Array<double> const & diameters, 
                              CellList& cellList)
    {
       // Shift atom position to primary image within boundary
@@ -82,7 +83,7 @@ namespace McMd
    * Generate random molecules
    */
    bool Generator::generate(int nMolecule, 
-                            const DArray<double>& diameters, 
+                            Array<double> const & diameters, 
                             CellList& cellList)
    {
       // Preconditions
@@ -127,7 +128,7 @@ namespace McMd
    void 
    Generator::setupCellList(int atomCapacity, 
                             Boundary& boundary,
-                            const DArray<double>& diameters,
+                            Array<double> const & diameters,
                             CellList& cellList)
    {
       // Set maximum atom id = atomCapacity - 1, and allocate

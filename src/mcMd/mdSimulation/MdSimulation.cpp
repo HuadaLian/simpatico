@@ -8,21 +8,21 @@
 #include <mcMd/mdSimulation/MdSimulation.h>
 #include <mcMd/mdSimulation/MdAnalyzerManager.h>
 #include <mcMd/mdIntegrators/MdIntegrator.h>
-#include <mcMd/species/Species.h>
 #include <mcMd/generators/Generator.h>
 #include <mcMd/generators/generatorFactory.h>
 #include <mcMd/analyzers/Analyzer.h>
 #include <mcMd/trajectory/TrajectoryReader.h>
 #include <mcMd/potentials/pair/MdPairPotential.h>
-#ifdef INTER_BOND
+#ifdef SIMP_BOND
 #include <mcMd/potentials/bond/BondPotential.h>
 #endif
-#ifdef INTER_ANGLE
+#ifdef SIMP_ANGLE
 #include <mcMd/potentials/angle/AnglePotential.h>
 #endif
-#ifdef INTER_DIHEDRAL
+#ifdef SIMP_DIHEDRAL
 #include <mcMd/potentials/dihedral/DihedralPotential.h>
 #endif
+#include <simp/species/Species.h>
 #include <util/format/Int.h>
 #include <util/format/Dbl.h>
 #include <util/format/Str.h>
@@ -39,6 +39,7 @@ namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    #ifdef UTIL_MPI
    /* 
@@ -226,11 +227,13 @@ namespace McMd
 
       Simulation::readParameters(in); 
 
-      readParamComposite(in, system_); 
-      readParamComposite(in, analyzerManager());
+      readParamComposite(in, system_);
+      Analyzer::baseInterval = 0; 
+      readParamCompositeOptional(in, analyzerManager());
 
       // Parameters for writing restart files
-      read<int>(in, "saveInterval", saveInterval_);
+      saveInterval_ = 0;
+      readOptional<int>(in, "saveInterval", saveInterval_);
       if (saveInterval_ > 0) {
          read<std::string>(in, "saveFileName", saveFileName_);
       }
@@ -308,10 +311,6 @@ namespace McMd
    void MdSimulation::readCommands(std::istream &in)
    {
       std::string   command;
-      std::string   filename;
-      std::ifstream inputFile;
-      std::ofstream outputFile;
-
       #ifndef UTIL_MPI
       std::istream&     inBuffer = in;
       #else
@@ -358,178 +357,13 @@ namespace McMd
             if (command == "FINISH") {
                Log::file() << std::endl;
                readNext = false;
-            } else 
-            if (command == "READ_CONFIG") {
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openInputFile(filename, inputFile);
-               std::cout << "Opened config file" << std::endl;
-               system().readConfig(inputFile);
-               std::cout << "Finished reading config file" << std::endl;
-               inputFile.close();
-            } else
-            if (command == "THERMALIZE") {
-               double temperature;
-               inBuffer >> temperature;
-               Log::file() << Dbl(temperature, 15, 6) << std::endl;
-               system().setBoltzmannVelocities(temperature);
-               system().removeDriftVelocity();
-            } else
-            if (command == "SIMULATE") {
-               int endStep;
-               inBuffer >> endStep;
-               Log::file() << Int(endStep, 15) << std::endl;
-               bool isContinuation = false;
-               simulate(endStep, isContinuation);
-            } else
-            if (command == "CONTINUE") {
-               if (iStep_ == 0) {
-                  UTIL_THROW("Attempt to continue simulation when iStep_ == 0");
-               }
-               int endStep;
-               inBuffer >> endStep;
-               Log::file() << Int(endStep, 15) << std::endl;
-               bool isContinuation = true;
-               simulate(endStep, isContinuation);
-            } else
-            if (command == "ANALYZE_CONFIGS") {
-               int min, max;
-               inBuffer >> min >> max >> filename;
-               Log::file() <<  Int(min, 15) << Int(max, 15)
-                           <<  Str(filename, 20) << std::endl;
-               analyzeConfigs(min, max, filename);
-            } else
-            if (command == "WRITE_CONFIG") {
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openOutputFile(filename, outputFile);
-               system().writeConfig(outputFile);
-               outputFile.close();
-            } else
-            if (command == "WRITE_PARAM") {
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openOutputFile(filename, outputFile);
-               writeParam(outputFile);
-               outputFile.close();
-            } else
-            if (command == "SET_CONFIG_IO") {
-               std::string classname;
-               inBuffer >> classname;
-               Log::file() << Str(classname, 15) << std::endl;
-               system().setConfigIo(classname);
-            } else
-            if (command == "ANALYZE_TRAJECTORY") {
-               std::string classname;
-               std::string filename;
-               int min, max;
-               inBuffer >> min >> max >> classname >> filename;
-               Log::file() << " " << Str(classname,15) 
-                           << " " << Str(filename, 15)
-                           << std::endl;
-               analyzeTrajectory(min, max, classname, filename);
-            } else 
-            if (command == "GENERATE_MOLECULES") {
-               DArray<double> diameters;
-               DArray<int> capacities;
-               diameters.allocate(nAtomType());
-               capacities.allocate(nSpecies());
-
-               // Parse command
-               inBuffer >> system().boundary();
-               Log::file() << "  " << system().boundary();
-               Label capacityLabel("Capacities:");
-               inBuffer >> capacityLabel;
-               for (int iSpecies = 0; iSpecies < nSpecies(); ++iSpecies) {
-                  inBuffer >> capacities[iSpecies];
-                  Log::file() << "  " << capacities[iSpecies];
-               }
-               Label diameterLabel("Diameters:");
-               inBuffer >> diameterLabel;
-               for (int iType=0; iType < nAtomType(); iType++) {
-                  inBuffer >> diameters[iType];
-                  Log::file() << "  " << diameters[iType];
-               }
-               Log::file() << std::endl;
-
-               // Setup a local cell list
-               CellList cellList;
-               Generator::setupCellList(atomCapacity(), system().boundary(),
-                                        diameters, cellList);
-
-               // Generate molecules for each species
-               Generator* ptr;
+            } else {
                bool success;
-               for (int iSpecies = 0; iSpecies < nSpecies(); ++iSpecies) {
-                  if (capacities[iSpecies] > 0) {
-                     ptr = generatorFactory(species(iSpecies), system());
-                     UTIL_CHECK(ptr);
-                     success = ptr->generate(capacities[iSpecies], diameters, cellList);
-                     delete ptr;
-                     if (!success) {
-                        Log::file() << "Failed to complete species " << iSpecies << "\n";
-                     }
-                     UTIL_CHECK(success);
-                  }
+               success = readCommand(command, inBuffer);
+               if (!success)  {
+                  Log::file() << "Error: Unknown command  " << std::endl;
+                  readNext = false;
                }
-
-               #ifndef INTER_NOPAIR 
-               // Generate system pair list
-               system().pairPotential().buildPairList();
-               #endif
-
-            } else
-            #ifndef UTIL_MPI
-            #ifndef INTER_NOPAIR
-            if (command == "SET_PAIR") {
-               std::string paramName;
-               int typeId1, typeId2; 
-               double value;
-               inBuffer >> paramName >> typeId1 >> typeId2 >> value;
-               Log::file() << "  " <<  paramName 
-                           << "  " <<  typeId1 << "  " <<  typeId2
-                           << "  " <<  value << std::endl;
-               system().pairPotential()
-                       .set(paramName, typeId1, typeId2, value);
-            } else 
-            #endif 
-            #ifdef INTER_BOND
-            if (command == "SET_BOND") {
-               std::string paramName;
-               int typeId; 
-               double value;
-               inBuffer >> paramName >> typeId >> value;
-               Log::file() << "  " <<  paramName << "  " <<  typeId 
-                           << "  " <<  value << std::endl;
-               system().bondPotential().set(paramName, typeId, value);
-            } else 
-            #endif
-            #ifdef INTER_ANGLE
-            if (command == "SET_ANGLE") {
-               std::string paramName;
-               int typeId; 
-               double value;
-               inBuffer >> paramName >> typeId >> value;
-               Log::file() << "  " <<  paramName << "  " <<  typeId 
-                           << "  " <<  value << std::endl;
-               system().anglePotential().set(paramName, typeId, value);
-            } else 
-            #endif 
-            #ifdef INTER_DIHEDRAL
-            if (command == "SET_DIHEDRAL") {
-               std::string paramName;
-               int typeId; 
-               double value;
-               inBuffer >> paramName >> typeId >> value;
-               Log::file() << "  " <<  paramName << "  " <<  typeId 
-                           << "  " <<  value << std::endl;
-               system().dihedralPotential().set(paramName, typeId, value);
-            } else 
-            #endif 
-            #endif // ifndef UTIL_MPI
-            {
-               Log::file() << "Error: Unknown command  " << std::endl;
-               readNext = false;
             }
 
          }
@@ -545,6 +379,163 @@ namespace McMd
          UTIL_THROW("Empty command file name");
       }
       readCommands(fileMaster().commandFile()); 
+   }
+
+   bool MdSimulation::readCommand(std::string const & command, 
+                                  std::istream& in)
+   {
+      std::string   filename;
+      std::ifstream inputFile;
+      std::ofstream outputFile;
+      bool success = true;
+
+      if (command == "READ_CONFIG") {
+         in >> filename;
+         Log::file() << Str(filename, 15) << std::endl;
+         fileMaster().openInputFile(filename, inputFile);
+         std::cout << "Opened config file" << std::endl;
+         system().readConfig(inputFile);
+         std::cout << "Finished reading config file" << std::endl;
+         inputFile.close();
+      } else
+      if (command == "THERMALIZE") {
+         double temperature;
+         in >> temperature;
+         Log::file() << Dbl(temperature, 15, 6) << std::endl;
+         system().setBoltzmannVelocities(temperature);
+         system().removeDriftVelocity();
+      } else
+      if (command == "SIMULATE") {
+         int endStep;
+         in >> endStep;
+         Log::file() << Int(endStep, 15) << std::endl;
+         bool isContinuation = false;
+         simulate(endStep, isContinuation);
+      } else
+      if (command == "CONTINUE") {
+         if (iStep_ == 0) {
+            UTIL_THROW("Attempt to continue simulation when iStep_ == 0");
+         }
+         int endStep;
+         in >> endStep;
+         Log::file() << Int(endStep, 15) << std::endl;
+         bool isContinuation = true;
+         simulate(endStep, isContinuation);
+      } else
+      if (command == "ANALYZE_CONFIGS") {
+         int min, max;
+         in >> min >> max >> filename;
+         Log::file() <<  Int(min, 15) << Int(max, 15)
+                     <<  Str(filename, 20) << std::endl;
+         analyzeConfigs(min, max, filename);
+      } else
+      if (command == "WRITE_CONFIG") {
+         in >> filename;
+         Log::file() << Str(filename, 15) << std::endl;
+         fileMaster().openOutputFile(filename, outputFile);
+         system().writeConfig(outputFile);
+         outputFile.close();
+      } else
+      if (command == "WRITE_PARAM") {
+         in >> filename;
+         Log::file() << Str(filename, 15) << std::endl;
+         fileMaster().openOutputFile(filename, outputFile);
+         writeParam(outputFile);
+         outputFile.close();
+      } else
+      if (command == "SET_CONFIG_IO") {
+         std::string classname;
+         in >> classname;
+         Log::file() << Str(classname, 15) << std::endl;
+         system().setConfigIo(classname);
+      } else
+      if (command == "ANALYZE_TRAJECTORY") {
+         std::string classname;
+         std::string filename;
+         int min, max;
+         in >> min >> max >> classname >> filename;
+         Log::file() << " " << Str(classname,15) 
+                     << " " << Str(filename, 15)
+                     << std::endl;
+         analyzeTrajectory(min, max, classname, filename);
+      } else 
+      if (command == "GENERATE_MOLECULES") {
+         DArray<double> diameters;
+         DArray<int> capacities;
+         diameters.allocate(nAtomType());
+         capacities.allocate(nSpecies());
+
+         // Parse command
+         in >> system().boundary();
+         Log::file() << "  " << system().boundary();
+         Label capacityLabel("Capacities:");
+         in >> capacityLabel;
+         for (int iSpecies = 0; iSpecies < nSpecies(); ++iSpecies) {
+            in >> capacities[iSpecies];
+            Log::file() << "  " << capacities[iSpecies];
+         }
+         Label diameterLabel("Diameters:");
+         in >> diameterLabel;
+         for (int iType=0; iType < nAtomType(); iType++) {
+            in >> diameters[iType];
+            Log::file() << "  " << diameters[iType];
+         }
+         Log::file() << std::endl;
+
+         system().generateMolecules(capacities, diameters);
+      } else
+      #ifndef UTIL_MPI
+      #ifndef SIMP_NOPAIR
+      if (command == "SET_PAIR") {
+         std::string paramName;
+         int typeId1, typeId2; 
+         double value;
+         in >> paramName >> typeId1 >> typeId2 >> value;
+         Log::file() << "  " <<  paramName 
+                     << "  " <<  typeId1 << "  " <<  typeId2
+                     << "  " <<  value << std::endl;
+         system().pairPotential()
+                 .set(paramName, typeId1, typeId2, value);
+      } else
+      #endif 
+      #ifdef SIMP_BOND
+      if (command == "SET_BOND") {
+         std::string paramName;
+         int typeId; 
+         double value;
+         in >> paramName >> typeId >> value;
+         Log::file() << "  " <<  paramName << "  " <<  typeId 
+                     << "  " <<  value << std::endl;
+         system().bondPotential().set(paramName, typeId, value);
+      } else
+      #endif
+      #ifdef SIMP_ANGLE
+      if (command == "SET_ANGLE") {
+         std::string paramName;
+         int typeId; 
+         double value;
+         in >> paramName >> typeId >> value;
+         Log::file() << "  " <<  paramName << "  " <<  typeId 
+                     << "  " <<  value << std::endl;
+         system().anglePotential().set(paramName, typeId, value);
+      } else
+      #endif 
+      #ifdef SIMP_DIHEDRAL
+      if (command == "SET_DIHEDRAL") {
+         std::string paramName;
+         int typeId; 
+         double value;
+         in >> paramName >> typeId >> value;
+         Log::file() << "  " <<  paramName << "  " <<  typeId 
+                     << "  " <<  value << std::endl;
+         system().dihedralPotential().set(paramName, typeId, value);
+      } else
+      #endif 
+      #endif
+      {
+         success = false;
+      }
+      return success;
    }
 
    /* 
@@ -572,6 +563,13 @@ namespace McMd
       int beginStep = iStep_;
       int nStep = endStep - beginStep;
 
+      #ifdef SIMP_NOPAIR
+      // When the pair potential is disabled, require that
+      // Analyzer::baseInterval > 0 to guarantee periodic 
+      // shifting of atomic positions into primary cell.
+      UTIL_CHECK(Analyzer::baseInterval > 0);
+      #endif
+
       // Main loop 
       Log::file() << std::endl;
       timer.start();
@@ -584,20 +582,12 @@ namespace McMd
                analyzerManager().sample(iStep_);
             }
          }
+
          if (saveInterval_ > 0) {
             if (iStep_ % saveInterval_ == 0) {
                save(saveFileName_);
             }
          }
-
-         #ifdef INTER_NOPAIR
-         else {
-            // When the pair potential is disabled, require that
-            // Analyzer::baseInterval != 0 to guarantee periodic 
-            // shifting of atomic positions into primary cell.
-            UTIL_THROW("Analyzer::baseInterval == 0 with no pair potential");
-         }
-         #endif
 
          // Take one MD step with the MdIntegrator
          system_.mdIntegrator().step();
@@ -639,7 +629,7 @@ namespace McMd
       Log::file() << std::endl;
       Log::file() << std::endl;
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       Log::file() << "PairList Statistics" << std::endl;
       Log::file() << "maxNPair           " 
                   << system().pairPotential().pairList().maxNPair()
@@ -666,8 +656,10 @@ namespace McMd
    MdSimulation::analyzeConfigs(int min, int max, std::string basename)
    {
       // Preconditions
-      if (min < 0)    UTIL_THROW("min < 0");
-      if (max < min)  UTIL_THROW("max < min");
+      UTIL_CHECK(min >= 0);
+      UTIL_CHECK(max > min);
+      UTIL_CHECK(Analyzer::baseInterval);
+      UTIL_CHECK(analyzerManager().size() > 0);
 
       Timer             timer;
       std::string       filename;
@@ -692,7 +684,7 @@ namespace McMd
          system().readConfig(configFile);
          configFile.close();
 
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          // Build the system CellList
          system().pairPotential().buildPairList();
          #endif
@@ -736,9 +728,10 @@ namespace McMd
                                         std::string filename)
    {
       // Preconditions
-      if (min < 0) UTIL_THROW("min < 0");
-      if (max < 0) UTIL_THROW("max < 0");
-      if (max < min) UTIL_THROW("max < min!");
+      UTIL_CHECK(min >= 0);
+      UTIL_CHECK(max > min);
+      UTIL_CHECK(Analyzer::baseInterval);
+      UTIL_CHECK(analyzerManager().size() > 0);
 
       // Construct TrajectoryReader
       TrajectoryReader* trajectoryReaderPtr;
@@ -762,7 +755,7 @@ namespace McMd
       for (iStep_ = 0; iStep_ <= max && hasFrame; ++iStep_) {
          hasFrame = trajectoryReaderPtr->readFrame();
          if (hasFrame) {
-            #ifndef INTER_NOPAIR
+            #ifndef SIMP_NOPAIR
             // Build the system PairList
             system().pairPotential().buildPairList();
             #endif

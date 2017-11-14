@@ -13,33 +13,36 @@
 #include <util/ensembles/BoundaryEnsemble.h>
 #include <util/ensembles/EnergyEnsemble.h>
 #include <mcMd/neighbor/PairIterator.h>
+#include <mcMd/neighbor/CellList.h>
 #include <mcMd/mdIntegrators/MdIntegratorFactory.h>
+#include <mcMd/generators/Generator.h>
+#include <mcMd/generators/generatorFactory.h>
 
 #include <mcMd/potentials/pair/MdPairPotential.h>
 #include <mcMd/potentials/pair/PairFactory.h>
 
-#ifdef INTER_BOND
+#ifdef SIMP_BOND
 #include <mcMd/potentials/bond/BondPotential.h>
 #include <mcMd/potentials/bond/BondFactory.h>
 #endif
-#ifdef INTER_ANGLE
+#ifdef SIMP_ANGLE
 #include <mcMd/potentials/angle/AnglePotential.h>
 #include <mcMd/potentials/angle/AngleFactory.h>
 #endif
-#ifdef INTER_DIHEDRAL
+#ifdef SIMP_DIHEDRAL
 #include <mcMd/potentials/dihedral/DihedralPotential.h>
 #endif
-#ifdef INTER_COULOMB
+#ifdef SIMP_COULOMB
 #include <mcMd/potentials/coulomb/MdCoulombPotential.h>
 #include <mcMd/potentials/coulomb/CoulombFactory.h>
 #endif
-#ifdef INTER_EXTERNAL
+#ifdef SIMP_EXTERNAL
 #include <mcMd/potentials/external/ExternalPotential.h>
 #endif
 #ifdef MCMD_LINK
 #include <mcMd/links/LinkMaster.h>
 #endif
-#ifdef INTER_TETHER
+#ifdef SIMP_TETHER
 #include <mcMd/potentials/tether/TetherPotential.h>
 #include <mcMd/tethers/TetherMaster.h>
 #endif
@@ -64,28 +67,28 @@ namespace McMd
    */
    MdSystem::MdSystem()
     : System(),
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       pairPotentialPtr_(0),
       #endif
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       bondPotentialPtr_(0),
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       anglePotentialPtr_(0),
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       dihedralPotentialPtr_(0),
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       coulombPotentialPtr_(0),
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       externalPotentialPtr_(0),
       #endif
       #ifdef MCMD_LINK
       linkPotentialPtr_(0),
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       tetherPotentialPtr_(0),
       #endif
       mdIntegratorPtr_(0),
@@ -104,28 +107,28 @@ namespace McMd
    */
    MdSystem::MdSystem(McSystem& system)
     : System(system),
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       pairPotentialPtr_(0),
       #endif
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       bondPotentialPtr_(0),
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       anglePotentialPtr_(0),
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       dihedralPotentialPtr_(0),
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       coulombPotentialPtr_(0),
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       externalPotentialPtr_(0),
       #endif
       #ifdef MCMD_LINK
       linkPotentialPtr_(0),
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       tetherPotentialPtr_(0),
       #endif
       mdIntegratorPtr_(0),
@@ -134,32 +137,32 @@ namespace McMd
    {
       setClassName("MdSystem");
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       assert(pairPotentialPtr_ == 0);
       pairPotentialPtr_ = pairFactory().mdFactory(system.pairPotential());
       if (pairPotentialPtr_ == 0) {
          UTIL_THROW("Failed attempt to clone McPairPotential");
       }
       #endif
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       assert(bondPotentialPtr_ == 0);
       if (system.hasBondPotential()) {
          bondPotentialPtr_ = &system.bondPotential();
       }
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       assert(anglePotentialPtr_ == 0);
       if (system.hasAnglePotential()) {
          anglePotentialPtr_ = &system.anglePotential();
       }
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       assert(dihedralPotentialPtr_ == 0);
       if (system.hasDihedralPotential()) {
          dihedralPotentialPtr_ = &system.dihedralPotential();
       }
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       #if 0
       assert(coulombPotentialPtr_ == 0);
       if (system.hasCoulombPotential()) {
@@ -167,7 +170,7 @@ namespace McMd
       }
       #endif
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       if (system.hasExternalPotential()) {
          externalPotentialPtr_ = &system.externalPotential();
       }
@@ -177,7 +180,7 @@ namespace McMd
          linkPotentialPtr_ = &system.linkPotential();
       }
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       if (system.hasTetherPotential()) {
          tetherPotentialPtr_ = &system.tetherPotential();
       }
@@ -193,28 +196,28 @@ namespace McMd
    */
    MdSystem::~MdSystem()
    {
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       if (pairPotentialPtr_) delete pairPotentialPtr_;
       #endif
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       if (!isCopy() && bondPotentialPtr_) delete bondPotentialPtr_;
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       if (!isCopy() && anglePotentialPtr_) delete anglePotentialPtr_;
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       if (!isCopy() && dihedralPotentialPtr_) delete dihedralPotentialPtr_;
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       if (!isCopy() && coulombPotentialPtr_) delete coulombPotentialPtr_;
       #endif
       #ifdef MCMD_LINK
       if (!isCopy() && linkPotentialPtr_) delete linkPotentialPtr_;
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       if (!isCopy() && externalPotentialPtr_) delete externalPotentialPtr_;
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       if (!isCopy() && tetherPotentialPtr_) delete tetherPotentialPtr_;
       #endif
 
@@ -251,7 +254,7 @@ namespace McMd
          readPotentialStyles(in);
       }
 
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       if (!isCopy()) {
          assert(coulombPotentialPtr_ == 0);
          if (simulation().hasCoulomb()) {
@@ -265,7 +268,7 @@ namespace McMd
       }
       #endif
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       if (!isCopy()) {
          assert(pairPotentialPtr_ == 0);
          pairPotentialPtr_ = pairFactory().mdFactory(pairStyle(), *this);
@@ -279,7 +282,7 @@ namespace McMd
 
       if (!isCopy()) {
 
-         #ifdef INTER_BOND
+         #ifdef SIMP_BOND
          assert(bondPotentialPtr_ == 0);
          if (simulation().nBondType() > 0) {
             bondPotentialPtr_ = bondFactory().factory(bondStyle());
@@ -290,7 +293,7 @@ namespace McMd
          }
          #endif
 
-         #ifdef INTER_ANGLE
+         #ifdef SIMP_ANGLE
          assert(anglePotentialPtr_ == 0);
          if (simulation().nAngleType() > 0) {
             anglePotentialPtr_ =
@@ -302,7 +305,7 @@ namespace McMd
          }
          #endif
 
-         #ifdef INTER_DIHEDRAL
+         #ifdef SIMP_DIHEDRAL
          assert(dihedralPotentialPtr_ == 0);
          if (simulation().nDihedralType() > 0) {
             dihedralPotentialPtr_ =
@@ -314,7 +317,7 @@ namespace McMd
          }
          #endif
 
-         #ifdef INTER_EXTERNAL
+         #ifdef SIMP_EXTERNAL
          assert(externalPotentialPtr_ == 0);
          if (simulation().hasExternal() > 0) {
             externalPotentialPtr_ =
@@ -338,7 +341,7 @@ namespace McMd
          }
          #endif
 
-         #ifdef INTER_TETHER
+         #ifdef SIMP_TETHER
          if (simulation().hasTether() > 0) {
             readTetherMaster(in);
             tetherPotentialPtr_ =
@@ -391,7 +394,7 @@ namespace McMd
          loadPotentialStyles(ar);
       }
 
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       if (!isCopy()) {
          assert(coulombPotentialPtr_ == 0);
          if (simulation().hasCoulomb() > 0) {
@@ -405,7 +408,7 @@ namespace McMd
       }
       #endif
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       if (!isCopy()) {
          assert(pairPotentialPtr_ == 0);
          pairPotentialPtr_ = pairFactory().mdFactory(pairStyle(), *this);
@@ -418,7 +421,7 @@ namespace McMd
 
       if (!isCopy()) {
 
-         #ifdef INTER_BOND
+         #ifdef SIMP_BOND
          assert(bondPotentialPtr_ == 0);
          if (simulation().nBondType() > 0) {
             bondPotentialPtr_ = bondFactory().factory(bondStyle());
@@ -429,7 +432,7 @@ namespace McMd
          }
          #endif
 
-         #ifdef INTER_ANGLE
+         #ifdef SIMP_ANGLE
          assert(anglePotentialPtr_ == 0);
          if (simulation().nAngleType() > 0) {
             anglePotentialPtr_ =
@@ -441,7 +444,7 @@ namespace McMd
          }
          #endif
 
-         #ifdef INTER_DIHEDRAL
+         #ifdef SIMP_DIHEDRAL
          assert(dihedralPotentialPtr_ == 0);
          if (simulation().nDihedralType() > 0) {
             dihedralPotentialPtr_ =
@@ -453,7 +456,7 @@ namespace McMd
          }
          #endif
 
-         #ifdef INTER_EXTERNAL
+         #ifdef SIMP_EXTERNAL
          assert(externalPotentialPtr_ == 0);
          if (simulation().hasExternal() > 0) {
             externalPotentialPtr_ =
@@ -477,7 +480,7 @@ namespace McMd
          }
          #endif
 
-         #ifdef INTER_TETHER
+         #ifdef SIMP_TETHER
          assert(tetherPotentialPtr_ == 0);
          if (simulation().hasTether() > 0) {
             loadTetherMaster(ar);
@@ -528,7 +531,7 @@ namespace McMd
          savePotentialStyles(ar);
       }
 
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       if (!isCopy()) {
          if (simulation().hasCoulomb()) {
             coulombPotentialPtr_->save(ar);
@@ -536,22 +539,22 @@ namespace McMd
       }
       #endif
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       pairPotential().save(ar);
       #endif
 
       if (!isCopy()) {
-         #ifdef INTER_BOND
+         #ifdef SIMP_BOND
          if (simulation().nBondType() > 0) {
             bondPotential().save(ar);
          }
          #endif
-         #ifdef INTER_ANGLE
+         #ifdef SIMP_ANGLE
          if (simulation().nAngleType() > 0) {
             anglePotential().save(ar);
          }
          #endif
-         #ifdef INTER_DIHEDRAL
+         #ifdef SIMP_DIHEDRAL
          if (simulation().nDihedralType() > 0) {
             dihedralPotential().save(ar);
          }
@@ -562,12 +565,12 @@ namespace McMd
             linkPotential().save(ar);
          }
          #endif
-         #ifdef INTER_EXTERNAL
+         #ifdef SIMP_EXTERNAL
          if (simulation().hasExternal()) {
             externalPotential().save(ar);
          }
          #endif
-         #ifdef INTER_TETHER
+         #ifdef SIMP_TETHER
          if (simulation().hasTether()) {
             saveTetherMaster(ar);
             tetherPotentialPtr_->save(ar);
@@ -590,11 +593,11 @@ namespace McMd
    {
       System::readConfig(in);
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       pairPotential().clearPairListStatistics();
       pairPotential().buildPairList();
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       if (hasCoulombPotential()) {
          coulombPotential().makeWaves();
          Log::file() << "Initial coulombPotential nWave = " 
@@ -610,11 +613,60 @@ namespace McMd
    void MdSystem::loadConfig(Serializable::IArchive& ar)
    {
       System::loadConfig(ar);
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       pairPotential().clearPairListStatistics();
       pairPotential().buildPairList();
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
+      if (hasCoulombPotential()) {
+         coulombPotential().makeWaves();
+      }
+      #endif
+      calculateForces();
+   }
+
+
+   /*
+   * Generate molecules for all species.
+   */
+   void MdSystem::generateMolecules(
+                       Array<int> const & capacities,
+                       Array<double> const & diameters)
+   {
+
+      // Setup a local cell list
+      CellList cellList;
+      Generator::setupCellList(simulation().atomCapacity(), 
+                               boundary(), diameters, cellList);
+
+      // Generate molecules for each species
+      Generator* ptr = 0;
+      int nSpecies = simulation().nSpecies();
+      bool success = false;
+      for (int iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
+         if (capacities[iSpecies] > 0) {
+            ptr = generatorFactory(simulation().species(iSpecies), *this);
+            UTIL_CHECK(ptr);
+            success = ptr->generate(capacities[iSpecies], 
+                                    diameters, cellList);
+            delete ptr;
+            if (!success) {
+               Log::file() << "Failed to complete species " 
+                           << iSpecies << "\n";
+            }
+            UTIL_CHECK(success);
+         }
+      }
+
+      #ifndef SIMP_NOPAIR
+      pairPotential().clearPairListStatistics();
+      pairPotential().buildPairList();
+      #endif
+      #ifdef UTIL_DEBUG
+      isValid();
+      #endif
+
+      #ifdef SIMP_COULOMB
       if (hasCoulombPotential()) {
          coulombPotential().makeWaves();
       }
@@ -742,32 +794,32 @@ namespace McMd
    void MdSystem::calculateForces()
    {
       setZeroForces();
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       // This method builds pair list if needed, and shifts atoms if
       // it builds the pair list.
       pairPotential().addForces();
       #endif
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       if (hasBondPotential()) {
          bondPotential().addForces();
       }
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       if (hasAnglePotential()) {
          anglePotential().addForces();
       }
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       if (hasDihedralPotential()) {
          dihedralPotential().addForces();
       }
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       if (hasCoulombPotential()) {
          coulombPotential().addForces();
       }
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       if (hasExternalPotential()) {
          externalPotential().addForces();
       }
@@ -777,7 +829,7 @@ namespace McMd
          linkPotential().addForces();
       }
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       if (tetherPotentialPtr_) {
          tetherPotential().addForces();
       }
@@ -790,30 +842,30 @@ namespace McMd
    double MdSystem::potentialEnergy()
    {
       double energy = 0.0;
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       energy += pairPotential().energy();
       #endif
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       if (hasBondPotential()) {
          energy += bondPotential().energy();
       }
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       if (hasAnglePotential()) {
          energy += anglePotential().energy();
       }
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       if (hasDihedralPotential()) {
          energy += dihedralPotential().energy();
       }
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       if (hasCoulombPotential()) {
          energy += coulombPotential().kSpaceEnergy();
       }
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       if (hasExternalPotential()) {
          energy += externalPotential().energy();
       }
@@ -823,7 +875,7 @@ namespace McMd
          energy += linkPotential().energy();
       }
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       if (tetherPotentialPtr_) {
          energy += tetherPotential().energy();
       }
@@ -836,10 +888,25 @@ namespace McMd
    */
    void MdSystem::unsetPotentialEnergy()
    {
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       pairPotential().unsetEnergy();
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_BOND
+      if (hasBondPotential()) {
+         bondPotential().unsetEnergy();
+      }
+      #endif
+      #ifdef SIMP_ANGLE
+      if (hasAnglePotential()) {
+         anglePotential().unsetEnergy();
+      }
+      #endif
+      #ifdef SIMP_DIHEDRAL
+      if (hasDihedralPotential()) {
+         dihedralPotential().unsetEnergy();
+      }
+      #endif
+      #ifdef SIMP_COULOMB
       if (hasCoulombPotential()) {
          coulombPotential().unsetEnergy();
       }
@@ -919,46 +986,40 @@ namespace McMd
    void MdSystem::computeVirialStressImpl(T& stress) const
    {
       setToZero(stress);
+      T dStress;
 
-      #ifndef INTER_NOPAIR
-      T pairStress;
-      pairPotential().computeStress(pairStress);
-      stress += pairStress;
+      #ifndef SIMP_NOPAIR
+      pairPotential().computeStress(dStress);
+      stress += dStress;
       #endif
-
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       if (hasBondPotential()) {
-         T bondStress;
-         bondPotential().computeStress(bondStress);
-         stress += bondStress;
+         bondPotential().computeStress(dStress);
+         stress += dStress;
       }
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       if (hasAnglePotential()) {
-         T angleStress;
-         anglePotential().computeStress(angleStress);
-         stress += angleStress;
+         anglePotential().computeStress(dStress);
+         stress += dStress;
       }
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       if (hasDihedralPotential()) {
-         T dihedralStress;
-         dihedralPotential().computeStress(dihedralStress);
-         stress += dihedralStress;
+         dihedralPotential().computeStress(dStress);
+         stress += dStress;
       }
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       if (hasCoulombPotential()) {
-         //T coulombStress;
-         //coulombPotential().computeStress(coulombStress);
-         //stress += coulombStress;
+         coulombPotential().computeStress(dStress);
+         stress += dStress;
       }
       #endif
       #ifdef MCMD_LINK
       if (hasLinkPotential()) {
-         T linkStress;
-         linkPotential().computeStress(linkStress);
-         stress += linkStress;
+         linkPotential().computeStress(dStress);
+         stress += dStress;
       }
       #endif
 
@@ -1016,10 +1077,25 @@ namespace McMd
    */
    void MdSystem::unsetVirialStress()
    {
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       pairPotential().unsetStress();
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_BOND
+      if (hasBondPotential()) {
+         bondPotential().unsetStress();
+      }
+      #endif
+      #ifdef SIMP_ANGLE
+      if (hasAnglePotential()) {
+         anglePotential().unsetStress();
+      }
+      #endif
+      #ifdef SIMP_DIHEDRAL
+      if (hasDihedralPotential()) {
+         dihedralPotential().unsetStress();
+      }
+      #endif
+      #ifdef SIMP_COULOMB
       if (hasCoulombPotential()) {
          coulombPotential().unsetStress();
       }
@@ -1034,7 +1110,7 @@ namespace McMd
    bool MdSystem::isValid() const
    {
       System::isValid();
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       pairPotential().pairList().isValid();
       #endif
       return true;

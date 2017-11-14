@@ -10,7 +10,7 @@
 
 #include <util/global.h>
 #include <mcMd/potentials/bond/BondPotential.h>
-#include <mcMd/simulation/SubSystem.h>
+#include <mcMd/simulation/SystemInterface.h>
 
 namespace Util
 {
@@ -31,7 +31,7 @@ namespace McMd
    * \ingroup McMd_Bond_Module
    */
    template <class Interaction>
-   class BondPotentialImpl : public BondPotential, public SubSystem
+   class BondPotentialImpl : public BondPotential, private SystemInterface
    {
 
    public:
@@ -136,30 +136,14 @@ namespace McMd
       void addForces();
 
       /**
-      * Return total bond potential energy of this System.
+      * Calculate and store pair energy for this System.
       */
-      double energy() const;
+      virtual void computeEnergy();
 
       /**
-      * Compute total bond pressure.
-      *
-      * \param stress (output) pressure.
+      * Compute and store the total nonbonded pressure
       */
-      virtual void computeStress(double& stress) const;
-
-      /**
-      * Compute x, y, z bond pressure components.
-      *
-      * \param stress (output) pressures.
-      */
-      virtual void computeStress(Util::Vector& stress) const;
-
-      /**
-      * Compute bond stress tensor.
-      *
-      * \param stress (output) pressures.
-      */
-      virtual void computeStress(Util::Tensor& stress) const;
+      virtual void computeStress();
 
       //@}
 
@@ -178,7 +162,10 @@ namespace McMd
       Interaction* interactionPtr_;
 
       bool isCopy_;
- 
+
+      /**
+      * Generic stress calculation, T=Tensor, Vector or double.
+      */  
       template <typename T>
       void computeStressImpl(T& stress) const;
 
@@ -210,7 +197,7 @@ namespace McMd
    template <class Interaction>
    BondPotentialImpl<Interaction>::BondPotentialImpl(System& system)
     : BondPotential(),
-      SubSystem(system),
+      SystemInterface(system),
       interactionPtr_(0),
       isCopy_(false)
    { interactionPtr_ = new Interaction(); }
@@ -222,7 +209,7 @@ namespace McMd
    BondPotentialImpl<Interaction>::BondPotentialImpl(
                          BondPotentialImpl<Interaction>& other)
     : BondPotential(),
-      SubSystem(other.system()),
+      SystemInterface(other.system()),
       interactionPtr_(&other.interaction()),
       isCopy_(true)
    {}
@@ -335,7 +322,7 @@ namespace McMd
    * Calculate covalent bond energy.
    */
    template <class Interaction>
-   double BondPotentialImpl<Interaction>::energy() const
+   void BondPotentialImpl<Interaction>::computeEnergy()
    {
       double energy = 0.0;
       double rsq    = 0.0;
@@ -355,7 +342,8 @@ namespace McMd
          }
       }
 
-      return energy;
+      energy_.set(energy);
+      //return energy;
    }
 
    /* 
@@ -390,7 +378,12 @@ namespace McMd
    }
 
    /* 
-   * Compute total stress (generic).
+   * Generic stress / pressure computation.
+   *
+   * Allowed types: 
+   *    T == Tensor -> compute stress tensor
+   *    T == Vector -> compute xx, yy, zz diagonal components
+   *    T == double -> compute pressure (P_xx + P_yy + P_zz)/3
    */
    template <class Interaction>
    template <typename T>
@@ -429,26 +422,26 @@ namespace McMd
       normalizeStress(stress);
    }
 
+   /*
+   * Compute all short-range pair contributions to stress.
+   */
    template <class Interaction>
-   void BondPotentialImpl<Interaction>::computeStress(double& stress) const
-   {  computeStressImpl(stress); }
+   void BondPotentialImpl<Interaction>::computeStress()
+   {
+      Tensor stress;
+      computeStressImpl(stress);
 
-   template <class Interaction>
-   void BondPotentialImpl<Interaction>::computeStress(Util::Vector& stress) 
-        const
-   {  computeStressImpl(stress); }
-
-   template <class Interaction>
-   void BondPotentialImpl<Interaction>::computeStress(Util::Tensor& stress) 
-        const
-   {  computeStressImpl(stress); }
+      // Set value of Setable<double> energy_ 
+      stress_.set(stress);
+   }
 
    template <class Interaction>
    inline Interaction& BondPotentialImpl<Interaction>::interaction()
    { return *interactionPtr_; }
 
    template <class Interaction>
-   inline const Interaction& BondPotentialImpl<Interaction>::interaction() const
+   inline 
+   const Interaction& BondPotentialImpl<Interaction>::interaction() const
    { return *interactionPtr_; }
 
    /*

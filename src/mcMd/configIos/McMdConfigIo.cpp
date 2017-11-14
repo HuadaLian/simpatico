@@ -8,16 +8,16 @@
 #include "McMdConfigIo.h"
 #include <mcMd/simulation/Simulation.h>
 #include <mcMd/simulation/System.h>
-#include <mcMd/species/Species.h>
 #include <mcMd/species/SpeciesMutator.h>
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Atom.h>
-#ifdef INTER_TETHER
+#ifdef SIMP_TETHER
 #include <mcMd/tethers/TetherMaster.h>
 #endif
 #ifdef MCMD_LINK
 #include <mcMd/links/LinkMaster.h>
 #endif
+#include <simp/species/Species.h>
 #include <util/param/Label.h>
 #include <util/format/Int.h>
 
@@ -25,6 +25,7 @@ namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /*
    * Constructor. 
@@ -91,7 +92,7 @@ namespace McMd
          }
       }
 
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       {  // Scope block for variables 
 
          // Read Tethers
@@ -214,7 +215,7 @@ namespace McMd
          }
       }
 
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       { // Scope for local variables
 
          // Write Tethers

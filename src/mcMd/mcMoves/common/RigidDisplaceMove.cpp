@@ -9,10 +9,12 @@
 #include <mcMd/simulation/Simulation.h>
 #include <mcMd/mcSimulation/McSystem.h>
 #include <mcMd/mcSimulation/mc_potentials.h>
-#include <mcMd/species/Species.h>
-#include <util/boundary/Boundary.h>
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Atom.h>
+
+#include <simp/species/Species.h>
+
+#include <util/boundary/Boundary.h>
 #include <util/space/Dimension.h>
 #include <util/global.h>
 
@@ -20,6 +22,7 @@ namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /* 
    * Constructor
@@ -92,15 +95,15 @@ namespace McMd
       for (iAtom = 0; iAtom < nAtom_; ++iAtom) {
          atomPtr = &molPtr->atom(iAtom);
          oldPositions_[iAtom] = atomPtr->position();
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          oldEnergy += system().pairPotential().atomEnergy(*atomPtr);
          #endif
-         #ifdef INTER_EXTERNAL
+         #ifdef SIMP_EXTERNAL
          if (system().hasExternalPotential()) {
             oldEnergy += system().externalPotential().atomEnergy(*atomPtr);
          }
          #endif
-         #ifdef INTER_TETHER
+         #ifdef SIMP_TETHER
          oldEnergy += system().atomTetherEnergy(*atomPtr);
          #endif
       }
@@ -116,15 +119,15 @@ namespace McMd
          atomPtr = &molPtr->atom(iAtom);
          atomPtr->position() += dr;
          boundary().shift(atomPtr->position());
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          newEnergy += system().pairPotential().atomEnergy(*atomPtr);
          #endif
-         #ifdef INTER_EXTERNAL
+         #ifdef SIMP_EXTERNAL
          if (system().hasExternalPotential()) {
             newEnergy += system().externalPotential().atomEnergy(*atomPtr);
          }
          #endif
-         #ifdef INTER_TETHER
+         #ifdef SIMP_TETHER
          newEnergy += system().atomTetherEnergy(*atomPtr);
          #endif
       }
@@ -134,7 +137,7 @@ namespace McMd
 
       if (accept) {
    
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          // Update cell
          for (iAtom = 0; iAtom < nAtom_; ++iAtom) {
             system().pairPotential().updateAtomCell(molPtr->atom(iAtom));

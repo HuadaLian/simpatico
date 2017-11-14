@@ -6,7 +6,7 @@
 
 #include <mcMd/simulation/Simulation.h>
 #include <mcMd/simulation/System.h>
-#include <mcMd/species/Species.h>
+#include <simp/species/Species.h>
 #include <mcMd/chemistry/Molecule.h>
 
 using namespace Util;
@@ -44,14 +44,14 @@ private:
 void SystemTest::setUp()
 {
 
-   #ifdef INTER_ANGLE
-   #ifdef INTER_DIHEDRAL
+   #ifdef SIMP_ANGLE
+   #ifdef SIMP_DIHEDRAL
    openFile("in/SimulationAngleDihedral"); 
    #else
    openFile("in/SimulationAngle"); 
    #endif
    #else
-   #ifdef INTER_DIHEDRAL
+   #ifdef SIMP_DIHEDRAL
    openFile("in/SimulationDihedral"); 
    #else
    openFile("in/Simulation"); 

@@ -9,11 +9,13 @@
 #include <mcMd/mcSimulation/McSystem.h>
 #include <mcMd/mcSimulation/mc_potentials.h>
 #include <mcMd/simulation/Simulation.h>
-#include <mcMd/species/Linear.h>
-#include <util/boundary/Boundary.h>
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Atom.h>
 #include <mcMd/chemistry/Bond.h>
+
+#include <simp/species/Linear.h>
+
+#include <util/boundary/Boundary.h>
 #include <util/space/Vector.h>
 #include <util/global.h>
 
@@ -21,6 +23,7 @@ namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /*
    * Constructor
@@ -65,7 +68,7 @@ namespace McMd
          }
       }
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       // Identify policy for masking nonbonded interactions.
       maskPolicy_ = simulation().maskedPairPolicy();
       #endif
@@ -132,7 +135,7 @@ namespace McMd
             UTIL_THROW("Inconsistent or unequal bond type ids");
          }
       }
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       if (maskPolicy_ != simulation().maskedPairPolicy()) {
          UTIL_THROW("Inconsistent values of maskPolicy_");
       }
@@ -199,7 +202,7 @@ namespace McMd
 
       // Delete tail atom
       deleteAtom(*molPtr, tailId, -sign, rosen_r, energy_r);
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       // Delete from McSystem cell list
       system().pairPotential().deleteAtom(*tailPtr);
       #endif
@@ -242,7 +245,7 @@ namespace McMd
          // Shift position of tail
          atomPtr = tailPtr + sign;
          tailPtr->position() = atomPtr->position();
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          // Add tail back to system cell list
          system().pairPotential().addAtom(*tailPtr);
          #endif
@@ -250,7 +253,7 @@ namespace McMd
          // Shift atom positions towards the head
          for (i = 1; i < nAtom - 1; ++i) {
             atomPtr->position() = (atomPtr+sign)->position();
-            #ifndef INTER_NOPAIR
+            #ifndef SIMP_NOPAIR
             system().pairPotential().updateAtomCell(*atomPtr);
             #endif
             atomPtr += sign;
@@ -259,7 +262,7 @@ namespace McMd
 
          // Move head atom to new chosen position
          atomPtr->position() = newPos;
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          system().pairPotential().updateAtomCell(*atomPtr);
          #endif
 
@@ -277,7 +280,7 @@ namespace McMd
 
          // Restore old position of tail
          tailPtr->position() = oldPos;
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          // Add tail back to System cell list.
          system().pairPotential().addAtom(*tailPtr);
          #endif
@@ -311,24 +314,24 @@ namespace McMd
             tType = uTypes_[i];
          }
 
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          oldEnergy = system().pairPotential().atomEnergy(*hAtomPtr);
          #else
          oldEnergy = 0.0;
          #endif
-         #ifdef INTER_EXTERNAL
+         #ifdef SIMP_EXTERNAL
          if (system().hasExternalPotential()) {
             oldEnergy += system().externalPotential().atomEnergy(*hAtomPtr);
          }
          #endif
 
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          hAtomPtr->setTypeId(tType);
          newEnergy = system().pairPotential().atomEnergy(*hAtomPtr);
          #else
          newEnergy = 0.0;
          #endif
-         #ifdef INTER_EXTERNAL
+         #ifdef SIMP_EXTERNAL
          if (system().hasExternalPotential()) {
             newEnergy += system().externalPotential().atomEnergy(*hAtomPtr);
          }
@@ -338,7 +341,7 @@ namespace McMd
       }
 
       // Revert modified atom type Ids to original values
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       for (i = 0; i < nJunction_; ++i) {
          j = junctions_[i];
          if (sign == 1) {
@@ -352,7 +355,7 @@ namespace McMd
       }
       return factor;
 
-      #else //ifdef INTER_NOPAIR
+      #else //ifdef SIMP_NOPAIR
       return 1.0;
       #endif
    }

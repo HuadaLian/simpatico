@@ -1,0 +1,220 @@
+Create branch tps in which to work
+
+Create directory src/mcMd/tps/
+
+Classes:
+
+namespace McMd {
+
+    struct MdParticle {
+       Vector position;
+       Vector velocity;
+    }
+
+}
+namespace McMd {
+
+   class MdSnapShot 
+    {
+
+      MdSnapShot(MdSystem& );
+
+      allocate(nAtom);
+
+      /**
+      * Set current state of system to state of this snapshot.
+       */
+      setSystemState();
+
+      /**
+      * Set snapshot state to current state of system.
+      */
+      getSystemState(int iStep = 0);
+
+      /**
+      * Unset state of snapshot, mark as unknown.
+      */
+      unset()
+
+      /**
+      * Is this snapshot set to a state?
+      */
+      bool isSet();
+
+      // Operations needed in path sampling
+
+      /**
+      * Add random velocities to a snapshot.
+      */ 
+      void addRandomVelocities(double sigma, MdSnapShot const & in);
+
+      /**
+      * Copy a snapshot with reversed velocities. (Needed)?
+      */ 
+      void reverseVelocities(MdSnapShot const & in);
+
+      // Accessors
+
+      /**
+      * Number of atoms for which memory is allocated;
+      */
+      int nAtom() const;
+
+      /**
+      * Get specific position const reference.
+      *
+      * \int 
+      */
+      MdParticle& particle(int i);
+
+      /**
+      * Get specific atom by const reference.
+      */
+      MdParticle const & particle(int i);
+      
+      /**
+      * Get boundary by reference.
+      */ 
+      Boundary& boundary();
+
+      /**
+      * Get boundary by const reference.
+      */ 
+      Boundary const & boundary() const;
+
+      /**
+      * Time step of this snapshot.
+      */
+      int iStep() const;
+
+   private:
+
+      // Array of MdParticles
+      DArray<MdParticle> particles_;
+
+      // System Boundary
+      Boundary boundary_;
+
+      // Time step stamp
+      int iStep_;
+
+   };
+
+}
+
+namespace McMd 
+{
+
+   class TisMdSnapShotArray
+   {
+
+      MdSnapShot(MdSystem&);
+
+      reserve(int nStep);
+
+      setNext(int iStep);
+
+      clear();
+
+      int nSnapShot();
+
+      SnapShot& operator [] (int i);
+
+   private:
+
+      GArray<MdSnapShot> snapshots_;
+
+   };
+
+}
+
+namespace McMd 
+{
+
+   class TisMdSimulation : public MdSimulation
+   {
+
+      /**
+      * Integrate a path sample. (maybe define in subclass)
+      */
+      void runPath(MdSnapShot const & initial, 
+                   bool reverse, 
+                   MdPathAnalyzer& analyzer, 
+                   MdTrajectory& trajectory);
+
+      // Building blocks for Path Sampling
+
+      /**
+      * Add random velocities to a snapshot.
+      */ 
+      void reverseSystemVelocities();
+
+      /**
+      * Add random velocities to a snapshot.
+      */ 
+      void reverseVelocities(MdSnapShot& snapshot);
+
+   };
+}
+
+namespace McMd 
+{
+
+   class MdPathAnalyzer : public SystemAnalyzer<MdSystem>
+   {
+
+      MdCriterion(MdSystem& system);
+
+      /**
+      * Test state of system.
+      */
+      virtual void sample(int iStep);
+
+      /**
+      * Return true iff simulation should stop.
+      */
+      virtual bool stopFlag() = 0;
+
+      /**
+      * Return true iff simulation should stop.
+      */
+      virtual bool saveFlag() = 0;
+
+      /**
+      * Return integer state code. 
+      */
+      virtual int stateId() = 0;
+
+      /**
+      * Test interval (number of MD steps between tests).
+      */
+      int iStep();
+
+      /**
+      * Return step index of last test.
+      */
+      int iStep();
+
+   private:
+ 
+      ReactionCoordinate* rcPtr_;
+ 
+   };
+}
+
+namespace McMd
+{
+
+   class MdReactionCoordinate {
+       
+      ReactionCoordinate(MdSystem& system);
+      double value() = 0;
+
+   };
+
+}
+
+   1) Do we need a separate data structure for Tps in a cyclic
+   buffer vs. random samples from Tis in growable array. Defer
+   definition to different subclass?
+

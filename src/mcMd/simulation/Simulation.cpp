@@ -10,9 +10,11 @@
 // namespace McMd
 #include <mcMd/analyzers/AnalyzerManager.h>
 #include <mcMd/species/SpeciesManager.h>
-#include <mcMd/species/Species.h>
-#include <mcMd/species/SpeciesGroup.tpp>
 #include <mcMd/chemistry/Activate.h>
+
+// namespace Simp
+#include <simp/species/Species.h>
+#include <simp/species/SpeciesGroup.tpp>
 
 // namespace Util
 #include <util/containers/ArraySet.h>
@@ -28,6 +30,7 @@ namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /*
    * Constructor.
@@ -41,31 +44,31 @@ namespace McMd
       moleculeCapacity_(0),
       nAtomType_(-1),
       atomCapacity_(0)
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       , maskedPairPolicy_(MaskBonded)
       #endif
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       , nBondType_(-1)
       , bondCapacity_(0)
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       , nAngleType_(-1)
       , angleCapacity_(0)
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       , nDihedralType_(-1)
       , dihedralCapacity_(0)
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       , hasCoulomb_(-1)
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       , hasExternal_(-1)
       #endif
       #ifdef MCMD_LINK
       , nLinkType_(-1)
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       , hasTether_(-1)
       #endif
       , communicatorPtr_(&communicator)
@@ -103,31 +106,31 @@ namespace McMd
       moleculeCapacity_(0),
       nAtomType_(-1),
       atomCapacity_(0)
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       , maskedPairPolicy_(MaskBonded)
       #endif
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       , nBondType_(-1)
       , bondCapacity_(0)
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       , nAngleType_(-1)
       , angleCapacity_(0)
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       , nDihedralType_(-1)
       , dihedralCapacity_(0)
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       , hasCoulomb_(-1)
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       , hasExternal_(-1)
       #endif
       #ifdef MCMD_LINK
       , nLinkType_(-1)
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       , hasTether_(-1)
       #endif
       #ifdef UTIL_MPI
@@ -194,34 +197,35 @@ namespace McMd
       if (nAtomType_ <= 0) {
          UTIL_THROW("nAtomType must be > 0");
       }
-      #ifdef INTER_BOND
-      read<int>(in, "nBondType", nBondType_);
+      #ifdef SIMP_BOND
+      nBondType_ = 0; // Default value
+      readOptional<int>(in, "nBondType", nBondType_);
       if (nBondType_ < 0) {
          UTIL_THROW("nBondType must be >= 0");
       }
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       nAngleType_ = 0; // Default value
       readOptional<int>(in, "nAngleType", nAngleType_); 
       if (nAngleType_ < 0) {
          UTIL_THROW("nAngleType must be >= 0");
       }
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       nDihedralType_ = 0; // Default value 
       readOptional<int>(in, "nDihedralType", nDihedralType_); 
       if (nDihedralType_ < 0) {
          UTIL_THROW("nDihedralType must be >= 0");
       }
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       hasCoulomb_ = 0;
       readOptional<int>(in, "hasCoulomb", hasCoulomb_); 
       if ((hasCoulomb_ != 0) && (hasCoulomb_ != 1)) {
          UTIL_THROW("hasCoulomb must be 0 or 1");
       }
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       hasExternal_ = 0; // Default value 
       readOptional<int>(in, "hasExternal", hasExternal_); 
       if (hasExternal_ < 0) {
@@ -235,7 +239,7 @@ namespace McMd
          UTIL_THROW("nLinkType must be >= 0");
       }
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       read<int>(in, "hasTether", hasTether_);
       if (hasTether_ < 0) {
          UTIL_THROW("hasTether must be >= 0");
@@ -246,7 +250,7 @@ namespace McMd
       atomTypes_.allocate(nAtomType_);
       for (int i = 0; i < nAtomType_; ++i) {
          atomTypes_[i].setId(i);
-         #ifdef INTER_COULOMB
+         #ifdef SIMP_COULOMB
          atomTypes_[i].setHasCharge(hasCoulomb_);
          #endif
       }
@@ -254,7 +258,7 @@ namespace McMd
       // Read AtomType data from file
       readDArray<AtomType>(in, "atomTypes", atomTypes_, nAtomType_);
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       read<MaskPolicy>(in, "maskedPairPolicy", maskedPairPolicy_);
       #endif
 
@@ -278,22 +282,22 @@ namespace McMd
       loadParamComposite(ar, fileMaster_);
 
       loadParameter<int>(ar, "nAtomType", nAtomType_);
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       loadParameter<int>(ar, "nBondType", nBondType_);
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       nAngleType_ = 0;
       loadParameter<int>(ar, "nAngleType", nAngleType_, false);
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       nDihedralType_ = 0;
       loadParameter<int>(ar, "nDihedralType", nDihedralType_, false);
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       hasCoulomb_ = 0;
       loadParameter<int>(ar, "hasCoulomb", hasCoulomb_, false);
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       hasExternal_ = 0;
       loadParameter<int>(ar, "hasExternal", hasExternal_, false);
       #endif
@@ -301,7 +305,7 @@ namespace McMd
       nLinkType_ = 0;
       loadParameter<int>(ar, "nLinkType", nLinkType_, false);
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       hasTether_ = false;
       loadParameter<int>(ar, "hasTether", hasTether_, false);
       #endif
@@ -313,7 +317,7 @@ namespace McMd
       }
       loadDArray<AtomType>(ar, "atomTypes", atomTypes_, nAtomType_);
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       loadParameter<MaskPolicy>(ar, "maskedPairPolicy", maskedPairPolicy_);
       #endif
       loadParamComposite(ar, *speciesManagerPtr_);
@@ -333,31 +337,31 @@ namespace McMd
    {
       fileMaster_.save(ar);
       ar << nAtomType_;
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       ar << nBondType_;
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       Parameter::saveOptional(ar, nAngleType_, (bool)nAngleType_);
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       Parameter::saveOptional(ar, nDihedralType_, (bool)nDihedralType_);
       #endif
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       Parameter::saveOptional(ar, hasCoulomb_, hasCoulomb_);
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       Parameter::saveOptional(ar, hasExternal_, hasExternal_);
       #endif
       #ifdef MCMD_LINK
       Parameter::saveOptional(ar, nLinkType_, (bool)nLinkType_);
       #endif
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       ar << hasTether_;
       Parameter::saveOptional(ar, hasTether_, hasTether_);
       #endif
 
       ar << atomTypes_;
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       ar & maskedPairPolicy_;
       #endif
       (*speciesManagerPtr_).save(ar);
@@ -382,17 +386,17 @@ namespace McMd
       if (nSpecies() <= 0) {
          UTIL_THROW("Error: nSpecies() <= 0 in Simulation::initialize()");
       }
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       if (nBondType_ < 0) {
          UTIL_THROW("Error: nBondType < 0 in Simulation::initialize()");
       }
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       if (nAngleType_ < 0) {
          UTIL_THROW("Error: nAngleType < 0 in Simulation::initialize()");
       }
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       if (nDihedralType_ < 0) {
          UTIL_THROW("Error: nDihedralType < 0 in Simulation::initialize()");
       }
@@ -406,13 +410,13 @@ namespace McMd
       Species *speciesPtr;
       int nAtom, iSpecies;
       int capacity;
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       int nBond;
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       int nAngle;
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       int nDihedral;
       #endif
 
@@ -420,17 +424,17 @@ namespace McMd
       reservoirs_.allocate(nSpecies());
       firstMoleculeIds_.allocate(nSpecies());
       firstAtomIds_.allocate(nSpecies());
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       if (nBondType_ > 0) {
          firstBondIds_.allocate(nSpecies());
       }
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       if (nAngleType_ > 0) {
          firstAngleIds_.allocate(nSpecies());
       }
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       if (nDihedralType_ > 0) {
          firstDihedralIds_.allocate(nSpecies());
       }
@@ -439,13 +443,13 @@ namespace McMd
       // Count Molecules, Atoms and Groups.
       moleculeCapacity_ = 0;
       atomCapacity_ = 0;
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       bondCapacity_ = 0;
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       angleCapacity_ = 0;
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       dihedralCapacity_ = 0;
       #endif
       for (iSpecies = 0; iSpecies < nSpecies(); ++iSpecies) {
@@ -463,17 +467,17 @@ namespace McMd
          // Set indexes of first objects of the blocks for this species
          firstMoleculeIds_[iSpecies] = moleculeCapacity_;
          firstAtomIds_[iSpecies] = atomCapacity_;
-         #ifdef INTER_BOND
+         #ifdef SIMP_BOND
          if (nBondType_ > 0) {
             firstBondIds_[iSpecies] = bondCapacity_;
          }
          #endif
-         #ifdef INTER_ANGLE
+         #ifdef SIMP_ANGLE
          if (nAngleType_ > 0) {
             firstAngleIds_[iSpecies] = angleCapacity_;
          }
          #endif
-         #ifdef INTER_DIHEDRAL
+         #ifdef SIMP_DIHEDRAL
          if (nDihedralType_ > 0) {
             firstDihedralIds_[iSpecies] = dihedralCapacity_;
          }
@@ -484,19 +488,19 @@ namespace McMd
          nAtom = speciesPtr->nAtom();
          moleculeCapacity_ += capacity;
          atomCapacity_ += capacity*nAtom;
-         #ifdef INTER_BOND
+         #ifdef SIMP_BOND
          if (nBondType_ > 0) {
             nBond = speciesPtr->nBond();
             bondCapacity_ += capacity*nBond;
          }
          #endif
-         #ifdef INTER_ANGLE
+         #ifdef SIMP_ANGLE
          if (nAngleType_ > 0) {
             nAngle = speciesPtr->nAngle();
             angleCapacity_ += capacity*nAngle;
          }
          #endif
-         #ifdef INTER_DIHEDRAL
+         #ifdef SIMP_DIHEDRAL
          if (nDihedralType_ > 0) {
             nDihedral = speciesPtr->nDihedral();
             dihedralCapacity_ += capacity*nDihedral;
@@ -516,7 +520,7 @@ namespace McMd
          initializeSpecies(iSpecies);
       }
 
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       // Initialize bonds.
       if (nBondType_ > 0) {
          if (bondCapacity_ > 0) {
@@ -530,7 +534,7 @@ namespace McMd
       }
       #endif
 
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       // Initialize angles.
       if (nAngleType_ > 0) {
          if (angleCapacity_ > 0) {
@@ -544,7 +548,7 @@ namespace McMd
       }
       #endif
 
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       // Initialize dihedrals.
       if (nDihedralType_ > 0) {
          if (dihedralCapacity_ > 0) {
@@ -620,7 +624,7 @@ namespace McMd
 
    }
 
-   #ifdef INTER_BOND
+   #ifdef SIMP_BOND
    /*
    * Initialize all Bond objects for Molecules of one Species. (private)
    *
@@ -676,7 +680,7 @@ namespace McMd
                bondPtr->setAtom(1, *atom1Ptr);
                bondPtr->setTypeId(type);
 
-               #ifndef INTER_NOPAIR
+               #ifndef SIMP_NOPAIR
                // If MaskBonded, add each bonded atom to its partners Mask
                if (maskedPairPolicy_ == MaskBonded) {
                   atom0Ptr->mask().append(*atom1Ptr);
@@ -694,7 +698,7 @@ namespace McMd
    }
    #endif
 
-   #ifdef INTER_ANGLE
+   #ifdef SIMP_ANGLE
    /*
    * Initialize all Angle objects for Molecules of one Species.
    *
@@ -764,7 +768,7 @@ namespace McMd
    }
    #endif
 
-   #ifdef INTER_DIHEDRAL
+   #ifdef SIMP_DIHEDRAL
    /*
    * Initialize all Dihedral objects for Molecules of one Species.
    *
@@ -901,19 +905,19 @@ namespace McMd
 
       // Declare and initialize pointers to atoms, bonds, etc.
       const Atom* atomPtr = &(atoms_[0]);
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       const Bond* bondPtr = 0;
       if (nBondType_ > 0) {
          bondPtr = &(bonds_[0]);
       }
       #endif
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       const Angle* anglePtr = 0;
       if (nAngleType_ > 0) {
          anglePtr = &(angles_[0]);
       }
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       const Dihedral* dihedralPtr = 0;
       if (nDihedralType_ > 0) {
           dihedralPtr  = &(dihedrals_[0]);
@@ -928,19 +932,19 @@ namespace McMd
          const Species* speciesPtr = &(species(iSpecies));
          const int capacity = speciesPtr->capacity();
          const int nAtom = speciesPtr->nAtom();
-         #ifdef INTER_BOND
+         #ifdef SIMP_BOND
          int nBond = 0;
          if (nBondType_ > 0) {
             nBond = speciesPtr->nBond();
          }
          #endif
-         #ifdef INTER_ANGLE
+         #ifdef SIMP_ANGLE
          int nAngle = 0;
          if (nAngleType_ > 0) {
             nAngle = speciesPtr->nAngle();
          }
          #endif
-         #ifdef INTER_DIHEDRAL
+         #ifdef SIMP_DIHEDRAL
          int nDihedral = 0;
          if (nDihedralType_ > 0) {
             nDihedral = speciesPtr->nDihedral();
@@ -996,7 +1000,7 @@ namespace McMd
                }
             }
 
-            #ifdef INTER_BOND
+            #ifdef SIMP_BOND
             if (nBondType_ > 0 && nBond > 0) {
 
                if (&moleculePtr->bond(0) != bondPtr) {
@@ -1051,7 +1055,7 @@ namespace McMd
                      UTIL_THROW("Bond is inactive");
                   }
 
-                  #ifndef INTER_NOPAIR
+                  #ifndef SIMP_NOPAIR
                   // If MaskBonded, check that bonded atoms are masked
                   if (maskedPairPolicy_ == MaskBonded) {
 
@@ -1070,7 +1074,7 @@ namespace McMd
             }
             #endif
 
-            #ifdef INTER_ANGLE
+            #ifdef SIMP_ANGLE
             if (nAngleType_ > 0 && nAngle > 0) {
 
                if (&moleculePtr->angle(0) != anglePtr) {
@@ -1136,7 +1140,7 @@ namespace McMd
             }
             #endif
 
-            #ifdef INTER_DIHEDRAL
+            #ifdef SIMP_DIHEDRAL
             if (nDihedralType_ > 0 && nDihedral > 0) {
 
                const Atom* tAtomPtr;

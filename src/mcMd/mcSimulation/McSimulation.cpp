@@ -13,20 +13,19 @@
 #include <mcMd/chemistry/Atom.h>
 #include <mcMd/analyzers/Analyzer.h>
 #include <mcMd/mcMoves/McMoveManager.h>
-#include <mcMd/species/Species.h>
 #include <mcMd/trajectory/TrajectoryReader.h>
 #include <mcMd/generators/Generator.h>
 #include <mcMd/generators/generatorFactory.h>
-#ifndef INTER_NOPAIR
+#ifndef SIMP_NOPAIR
 #include <mcMd/potentials/pair/McPairPotential.h>
 #endif
-#ifdef INTER_BOND
+#ifdef SIMP_BOND
 #include <mcMd/potentials/bond/BondPotential.h>
 #endif
-#ifdef INTER_ANGLE
+#ifdef SIMP_ANGLE
 #include <mcMd/potentials/angle/AnglePotential.h>
 #endif
-#ifdef INTER_DIHEDRAL
+#ifdef SIMP_DIHEDRAL
 #include <mcMd/potentials/dihedral/DihedralPotential.h>
 #endif
 #ifdef UTIL_MPI
@@ -34,6 +33,8 @@
 #include <mcMd/perturb/ReplicaMove.h>
 #endif
 #endif
+
+#include <simp/species/Species.h>
 
 #include <util/param/Factory.h>
 #include <util/archives/Serializable_includes.h>
@@ -54,6 +55,7 @@ namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    #ifdef UTIL_MPI
    /*
@@ -265,11 +267,13 @@ namespace McMd
       assert(mcMoveManagerPtr_);
       readParamComposite(in, *mcMoveManagerPtr_);
 
-      // Read Analyzers
-      readParamComposite(in, analyzerManager());
+      // Read Analyzers (optionally)
+      Analyzer::baseInterval = 0; // default value
+      readParamCompositeOptional(in, analyzerManager());
 
-      // Parameters for writing restart files
-      read<int>(in, "saveInterval", saveInterval_);
+      // Parameters for writing restart files (optionally)
+      saveInterval_ = 0; // default value
+      readOptional<int>(in, "saveInterval", saveInterval_);
       if (saveInterval_ > 0) {
          read<std::string>(in, "saveFileName", saveFileName_);
       }
@@ -378,15 +382,11 @@ namespace McMd
 
    void McSimulation::save(const std::string& filename)
    {
-      if (saveInterval_ > 0) {
-         if (iStep_ % saveInterval_ == 0) {
-            Serializable::OArchive ar;
-            std::ios_base::openmode mode = std::ios_base::out | std::ios_base::binary;
-            fileMaster().openRestartOFile(filename, ar.file(), mode);
-            save(ar);
-            ar.file().close();
-         }
-      }
+      Serializable::OArchive ar;
+      std::ios_base::openmode mode = std::ios_base::out | std::ios_base::binary;
+      fileMaster().openRestartOFile(filename, ar.file(), mode);
+      save(ar);
+      ar.file().close();
    }
 
    /*
@@ -453,228 +453,226 @@ namespace McMd
             if (command == "FINISH") {
                Log::file() << std::endl;
                readNext = false;
-            } else
-            if (command == "SET_CONFIG_IO") {
-               std::string classname;
-               inBuffer >> classname;
-               Log::file() << Str(classname, 15) << std::endl;
-               system().setConfigIo(classname);
-            } else
-            if (command == "READ_CONFIG") {
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openInputFile(filename, inputFile);
-               system().readConfig(inputFile);
-               inputFile.close();
-            } else
-            if (command == "SIMULATE") {
-               int endStep;
-               inBuffer >> endStep;
-               Log::file() << "  " << endStep << std::endl;
-               bool isContinuation = false;
-               simulate(endStep, isContinuation);
-            } else
-            if (command == "CONTINUE") {
-               if (iStep_ == 0) {
-                  UTIL_THROW("Attempt to continue when iStep_ == 0");
-               }
-               int endStep;
-               inBuffer >> endStep;
-               Log::file() << Int(endStep, 15) << std::endl;
-               bool isContinuation = true;
-               simulate(endStep, isContinuation);
-            } else
-            if (command == "ANALYZE_CONFIGS") {
-               int min, max;
-               inBuffer >> min >> max >> filename;
-               Log::file() << "  " <<  min << "  " <<  max
-                           << "  " <<  filename << std::endl;
-               analyzeConfigs(min, max, filename);
-            } else
-            if (command == "ANALYZE_TRAJECTORY") {
-               std::string classname;
-               std::string filename;
-               int min, max;
-               inBuffer >> min >> max >> classname >> filename;
-               Log::file() << " " << Str(classname,15) 
-                           << " " << Str(filename, 15)
-                           << std::endl;
-               analyzeTrajectory(min, max, classname, filename);
-            } else 
-            if (command == "WRITE_CONFIG") {
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openOutputFile(filename, outputFile);
-               system().writeConfig(outputFile);
-               outputFile.close();
-            } else
-            if (command == "WRITE_PARAM") {
-               inBuffer >> filename;
-               Log::file() << "  " << filename << std::endl;
-               fileMaster().openOutputFile(filename, outputFile);
-               writeParam(outputFile);
-               outputFile.close();
-            } else 
-            if (command == "GENERATE_MOLECULES") {
-               DArray<double> diameters;
-               DArray<int> capacities;
-               diameters.allocate(nAtomType());
-               capacities.allocate(nSpecies());
-
-               // Parse command
-               inBuffer >> system().boundary();
-               Log::file() << "  " << system().boundary();
-               Label capacityLabel("Capacities:");
-               inBuffer >> capacityLabel;
-               for (int iSpecies = 0; iSpecies < nSpecies(); ++iSpecies) {
-                  inBuffer >> capacities[iSpecies];
-                  Log::file() << "  " << capacities[iSpecies];
-               }
-               Label diameterLabel("Diameters:");
-               inBuffer >> diameterLabel;
-               for (int iType=0; iType < nAtomType(); iType++) {
-                  inBuffer >> diameters[iType];
-                  Log::file() << "  " << diameters[iType];
-               }
-               Log::file() << std::endl;
-
-               // Setup local cell list
-               CellList cellList;
-               Generator::setupCellList(atomCapacity(), system().boundary(),
-                                        diameters, cellList);
-
-               // Generate molecules for each species
-               Generator* ptr;
+            } else {
                bool success;
-               for (int iSpecies = 0; iSpecies < nSpecies(); ++iSpecies) {
-                  if (capacities[iSpecies] > 0) {
-                     ptr = generatorFactory(species(iSpecies), system());
-                     UTIL_CHECK(ptr);
-                     success = ptr->generate(capacities[iSpecies], diameters, cellList);
-                     delete ptr;
-                     if (!success) {
-                        Log::file() << "Failed to complete species " << iSpecies << "\n";
-                     }
-                     UTIL_CHECK(success);
-                  }
+               success = readCommand(command, inBuffer);
+               if (!success)  {
+                  Log::file() << "Error: Unknown command  " << std::endl;
+                  readNext = false;
                }
-
-               #ifndef INTER_NOPAIR 
-               // Generate system cell list
-               system().pairPotential().buildCellList();
-               #endif
-
-            } else
-            if (command == "DEFORM_CELL") {
-               
-               // Read in configuration from file
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openInputFile(filename, inputFile);
-               system().readConfig(inputFile);
-               inputFile.close();
-
-               System::MoleculeIterator molIter;
-               Molecule::AtomIterator atomIter;
-               for (int iSpec=0; iSpec < nSpecies(); ++iSpec) {
-                  system().begin(iSpec, molIter);
-                  for ( ; molIter.notEnd(); ++molIter) {
-                     molIter->begin(atomIter);
-                     for ( ; atomIter.notEnd(); ++atomIter) {
-                        Vector cartPosition, genPosition;
-                        cartPosition = atomIter->position();
-                        system().boundary().transformCartToGen(cartPosition, genPosition);
-                        atomIter->position() = genPosition;
-                     }
-                  }
-               }
-
-               // Read in new boundary
-               inBuffer >> system().boundary();
-               Log::file() << "  " << system().boundary();
-               Log::file() << std::endl;
-
-               for (int iSpec=0; iSpec < nSpecies(); ++iSpec) {
-                  system().begin(iSpec, molIter);
-                  for ( ; molIter.notEnd(); ++molIter) {
-                     molIter->begin(atomIter);
-                     for ( ; atomIter.notEnd(); ++atomIter) {
-                        Vector cartPosition, genPosition;
-                        genPosition = atomIter->position();
-                        system().boundary().transformGenToCart(genPosition, cartPosition);
-                        atomIter->position() = cartPosition;
-                     }
-                  }
-               }
-
-               // Write out configuration to file
-               inBuffer >> filename;
-               Log::file() << Str(filename, 15) << std::endl;
-               fileMaster().openOutputFile(filename, outputFile);
-               system().writeConfig(outputFile);
-               outputFile.close();
-
-               #ifndef INTER_NOPAIR 
-               // Generate cell list
-               system().pairPotential().buildCellList();
-               #endif
-
-            } else
-            #ifndef UTIL_MPI
-            #ifndef INTER_NOPAIR
-            if (command == "SET_PAIR") {
-               std::string paramName;
-               int typeId1, typeId2; 
-               double value;
-               inBuffer >> paramName >> typeId1 >> typeId2 >> value;
-               Log::file() << "  " <<  paramName 
-                           << "  " <<  typeId1 << "  " <<  typeId2
-                           << "  " <<  value << std::endl;
-               system().pairPotential()
-                       .set(paramName, typeId1, typeId2, value);
-            } else 
-            #endif 
-            #ifdef INTER_BOND
-            if (command == "SET_BOND") {
-               std::string paramName;
-               int typeId; 
-               double value;
-               inBuffer >> paramName >> typeId >> value;
-               Log::file() << "  " <<  paramName << "  " <<  typeId 
-                           << "  " <<  value << std::endl;
-               system().bondPotential().set(paramName, typeId, value);
-            } else 
-            #endif
-            #ifdef INTER_ANGLE
-            if (command == "SET_ANGLE") {
-               std::string paramName;
-               int typeId; 
-               double value;
-               inBuffer >> paramName >> typeId >> value;
-               Log::file() << "  " <<  paramName << "  " <<  typeId 
-                           << "  " <<  value << std::endl;
-               system().anglePotential().set(paramName, typeId, value);
-            } else 
-            #endif 
-            #ifdef INTER_DIHEDRAL
-            if (command == "SET_DIHEDRAL") {
-               std::string paramName;
-               int typeId; 
-               double value;
-               inBuffer >> paramName >> typeId >> value;
-               Log::file() << "  " <<  paramName << "  " <<  typeId 
-                           << "  " <<  value << std::endl;
-               system().dihedralPotential().set(paramName, typeId, value);
-            } else 
-            #endif // ifdef INTER_DIHEDRAL
-            #endif // ifndef UTIL_MPI
-            {
-               Log::file() << "  Error: Unknown command  " << std::endl;
-               readNext = false;
             }
 
          }
       }
+   }
+
+
+   bool McSimulation::readCommand(std::string const & command, 
+                                  std::istream& in)
+   {
+      std::string   filename;
+      std::ifstream inputFile;
+      std::ofstream outputFile;
+      bool success = true;
+
+      if (command == "SET_CONFIG_IO") {
+         std::string classname;
+         in >> classname;
+         Log::file() << Str(classname, 15) << std::endl;
+         system().setConfigIo(classname);
+      } else
+      if (command == "READ_CONFIG") {
+         in >> filename;
+         Log::file() << Str(filename, 15) << std::endl;
+         fileMaster().openInputFile(filename, inputFile);
+         system().readConfig(inputFile);
+         inputFile.close();
+      } else
+      if (command == "SIMULATE") {
+         int endStep;
+         in >> endStep;
+         Log::file() << "  " << endStep << std::endl;
+         bool isContinuation = false;
+         simulate(endStep, isContinuation);
+      } else
+      if (command == "CONTINUE") {
+         if (iStep_ == 0) {
+            UTIL_THROW("Attempt to continue when iStep_ == 0");
+         }
+         int endStep;
+         in >> endStep;
+         Log::file() << Int(endStep, 15) << std::endl;
+         bool isContinuation = true;
+         simulate(endStep, isContinuation);
+      } else
+      if (command == "ANALYZE_CONFIGS") {
+         int min, max;
+         in >> min >> max >> filename;
+         Log::file() << "  " <<  min << "  " <<  max
+                     << "  " <<  filename << std::endl;
+         analyzeConfigs(min, max, filename);
+      } else
+      if (command == "ANALYZE_TRAJECTORY") {
+         std::string classname;
+         std::string filename;
+         int min, max;
+         in >> min >> max >> classname >> filename;
+         Log::file() << " " << Str(classname,15) 
+                     << " " << Str(filename, 15)
+                     << std::endl;
+         analyzeTrajectory(min, max, classname, filename);
+      } else 
+      if (command == "WRITE_CONFIG") {
+         in >> filename;
+         Log::file() << Str(filename, 15) << std::endl;
+         fileMaster().openOutputFile(filename, outputFile);
+         system().writeConfig(outputFile);
+         outputFile.close();
+      } else
+      if (command == "WRITE_PARAM") {
+         in >> filename;
+         Log::file() << "  " << filename << std::endl;
+         fileMaster().openOutputFile(filename, outputFile);
+         writeParam(outputFile);
+         outputFile.close();
+      } else 
+      if (command == "GENERATE_MOLECULES") {
+         DArray<double> diameters;
+         DArray<int> capacities;
+         diameters.allocate(nAtomType());
+         capacities.allocate(nSpecies());
+
+         // Parse command
+         in >> system().boundary();
+         Log::file() << "\n  Boundary:    " << system().boundary();
+         Label capacityLabel("Capacities:");
+         in >> capacityLabel;
+         Log::file() << "\n  Capacities: ";
+         for (int iSpecies = 0; iSpecies < nSpecies(); ++iSpecies) {
+            in >> capacities[iSpecies];
+            Log::file() << "  " << capacities[iSpecies];
+         }
+         Label diameterLabel("Diameters:");
+         in >> diameterLabel;
+         Log::file() << "\n  Diameters: ";
+         for (int iType=0; iType < nAtomType(); iType++) {
+            in >> diameters[iType];
+            Log::file() << "  " << diameters[iType];
+         }
+         Log::file() << std::endl;
+
+         system().generateMolecules(capacities, diameters);
+
+      } else
+      if (command == "DEFORM_CELL") {
+         
+         // Read in configuration from file
+         in >> filename;
+         Log::file() << Str(filename, 15) << std::endl;
+         fileMaster().openInputFile(filename, inputFile);
+         system().readConfig(inputFile);
+         inputFile.close();
+
+         System::MoleculeIterator molIter;
+         Molecule::AtomIterator atomIter;
+         for (int iSpec=0; iSpec < nSpecies(); ++iSpec) {
+            system().begin(iSpec, molIter);
+            for ( ; molIter.notEnd(); ++molIter) {
+               molIter->begin(atomIter);
+               for ( ; atomIter.notEnd(); ++atomIter) {
+                  Vector cartPosition, genPosition;
+                  cartPosition = atomIter->position();
+                  system().boundary().transformCartToGen(cartPosition, genPosition);
+                  atomIter->position() = genPosition;
+               }
+            }
+         }
+
+         // Read in new boundary
+         in >> system().boundary();
+         Log::file() << "  " << system().boundary();
+         Log::file() << std::endl;
+
+         for (int iSpec=0; iSpec < nSpecies(); ++iSpec) {
+            system().begin(iSpec, molIter);
+            for ( ; molIter.notEnd(); ++molIter) {
+               molIter->begin(atomIter);
+               for ( ; atomIter.notEnd(); ++atomIter) {
+                  Vector cartPosition, genPosition;
+                  genPosition = atomIter->position();
+                  system().boundary().transformGenToCart(genPosition, cartPosition);
+                  atomIter->position() = cartPosition;
+               }
+            }
+         }
+
+         // Write out configuration to file
+         in >> filename;
+         Log::file() << Str(filename, 15) << std::endl;
+         fileMaster().openOutputFile(filename, outputFile);
+         system().writeConfig(outputFile);
+         outputFile.close();
+
+         #ifndef SIMP_NOPAIR 
+         // Generate cell list
+         system().pairPotential().buildCellList();
+         #endif
+
+      } else
+      #ifndef UTIL_MPI
+      #ifndef SIMP_NOPAIR
+      if (command == "SET_PAIR") {
+         std::string paramName;
+         int typeId1, typeId2; 
+         double value;
+         in >> paramName >> typeId1 >> typeId2 >> value;
+         Log::file() << "  " <<  paramName 
+                     << "  " <<  typeId1 << "  " <<  typeId2
+                     << "  " <<  value << std::endl;
+         system().pairPotential()
+                 .set(paramName, typeId1, typeId2, value);
+      } else 
+      #endif 
+      #ifdef SIMP_BOND
+      if (command == "SET_BOND") {
+         std::string paramName;
+         int typeId; 
+         double value;
+         in >> paramName >> typeId >> value;
+         Log::file() << "  " <<  paramName << "  " <<  typeId 
+                     << "  " <<  value << std::endl;
+         system().bondPotential().set(paramName, typeId, value);
+      } else 
+      #endif
+      #ifdef SIMP_ANGLE
+      if (command == "SET_ANGLE") {
+         std::string paramName;
+         int typeId; 
+         double value;
+         in >> paramName >> typeId >> value;
+         Log::file() << "  " <<  paramName << "  " <<  typeId 
+                     << "  " <<  value << std::endl;
+         system().anglePotential().set(paramName, typeId, value);
+      } else 
+      #endif 
+      #ifdef SIMP_DIHEDRAL
+      if (command == "SET_DIHEDRAL") {
+         std::string paramName;
+         int typeId; 
+         double value;
+         in >> paramName >> typeId >> value;
+         Log::file() << "  " <<  paramName << "  " <<  typeId 
+                     << "  " <<  value << std::endl;
+         system().dihedralPotential().set(paramName, typeId, value);
+      } else 
+      #endif // ifdef SIMP_DIHEDRAL
+      #endif // ifndef UTIL_MPI
+
+      // Command name not recognized
+      {
+         success = false;
+      }
+      return success;
    }
 
    /*
@@ -717,13 +715,21 @@ namespace McMd
       timer.start();
       for ( ; iStep_ < endStep; ++iStep_) {
 
-         // Call analyzers and restart output
-         if (Analyzer::baseInterval > 0) {
+         // Call analyzers 
+         if (Analyzer::baseInterval != 0) {
             if (iStep_ % Analyzer::baseInterval == 0) {
-               system().positionSignal().notify();
+               if (analyzerManager().size() > 0) {
+                  system().positionSignal().notify();
+                  analyzerManager().sample(iStep_);
+                  system().positionSignal().notify();
+               }
+            }
+         }
+
+         // Save restart file
+         if (saveInterval_ != 0) {
+            if (iStep_ % saveInterval_ == 0) {
                save(saveFileName_);
-               analyzerManager().sample(iStep_);
-               system().positionSignal().notify();
             }
          }
 
@@ -738,7 +744,7 @@ namespace McMd
                if (system().replicaMove().isAtInterval(iStep_)) {
                   system().positionSignal().notify();
                   bool success = system().replicaMove().move();
-                  #ifndef INTER_NOPAIR
+                  #ifndef SIMP_NOPAIR
                   if (success) {
                      system().pairPotential().buildCellList();
                   }
@@ -753,19 +759,29 @@ namespace McMd
       timer.stop();
       double time = timer.time();
 
-      // Final analyzers / save
+      // Final analyzers 
       assert(iStep_ == endStep);
       if (Analyzer::baseInterval > 0) {
          if (iStep_ % Analyzer::baseInterval == 0) {
-            system().positionSignal().notify();
+            if (analyzerManager().size() != 0) {
+               system().positionSignal().notify();
+               analyzerManager().sample(iStep_);
+               system().positionSignal().notify();
+            }
+         }
+      }
+
+      // Final save to archive
+      if (saveInterval_ != 0) {
+         if (iStep_ % saveInterval_ == 0) {
             save(saveFileName_);
-            analyzerManager().sample(iStep_);
-            system().positionSignal().notify();
          }
       }
 
       // Output results of all analyzers to output files
-      analyzerManager().output();
+      if (Analyzer::baseInterval > 0) {
+         analyzerManager().output();
+      }
 
       // Output results of move statistics to files
       mcMoveManagerPtr_->output();
@@ -834,8 +850,11 @@ namespace McMd
    McSimulation::analyzeConfigs(int min, int max, std::string basename)
    {
       // Preconditions
-      if (min < 0)    UTIL_THROW("min < 0");
-      if (max < min)  UTIL_THROW("max < min");
+      UTIL_CHECK(min > 0);
+      UTIL_CHECK(max > min);
+      UTIL_CHECK(Analyzer::baseInterval > 0);
+      UTIL_CHECK(analyzerManager().size() > 0);
+      
 
       Timer             timer;
       std::string       filename;
@@ -860,7 +879,7 @@ namespace McMd
          system().readConfig(configFile);
          configFile.close();
 
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          // Build the system CellList
          system().pairPotential().buildCellList();
          #endif
@@ -930,7 +949,7 @@ namespace McMd
       for (iStep_ = 0; iStep_ <= max && hasFrame; ++iStep_) {
          hasFrame = trajectoryReaderPtr->readFrame();
          if (hasFrame) {
-            #ifndef INTER_NOPAIR
+            #ifndef SIMP_NOPAIR
             // Build the system PairList
             system().pairPotential().buildCellList();
             #endif

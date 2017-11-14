@@ -16,15 +16,15 @@
 // Coulomb Potential interaction classes
 #include <mcMd/potentials/coulomb/MdCoulombPotential.h>
 #include <mcMd/potentials/coulomb/MdEwaldPotential.h>
-#ifdef INTER_FFTW
-#include <mcMd/potentials/coulomb/MdPMEPotential.h>
+#ifdef SIMP_FFTW
+#include <mcMd/potentials/coulomb/MdSpmePotential.h>
 #endif
 
 
 namespace McMd
 {
 
-   //using namespace Inter;
+   //using namespace Simp;
 
    /**
    * Default constructor.
@@ -49,9 +49,9 @@ namespace McMd
       if (name == "Ewald") {
          ptr = new MdEwaldPotential(*systemPtr_);
       } 
-      #ifdef INTER_FFTW
-      else if (name == "PME") {
-         ptr = new MdPMEPotential(*systemPtr_);
+      #ifdef SIMP_FFTW
+      else if (name == "SPME") {
+         ptr = new MdSpmePotential(*systemPtr_);
       } 
       #endif
       return ptr;

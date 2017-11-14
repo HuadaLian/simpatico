@@ -9,16 +9,17 @@
 #include <mcMd/generators/Generator.h>
 #include <mcMd/generators/PointGenerator.h>
 #include <mcMd/generators/LinearGenerator.h>
-
-#include <mcMd/species/Species.h>
-#include <mcMd/species/Point.h>
-#include <mcMd/species/Linear.h>
-
+#include <simp/species/Point.h>
+#include <simp/species/Linear.h>
 #include <mcMd/mcSimulation/McSystem.h>
 #include <mcMd/mdSimulation/MdSystem.h>
 
+#include <simp/species/Species.h>
+
 namespace McMd
 {
+
+   using namespace Simp;
 
    class System;
 
@@ -28,7 +29,7 @@ namespace McMd
       if (dynamic_cast<Point*>(&species)) {
          ptr = new PointGenerator(species, system);
       }
-      #ifdef INTER_BOND 
+      #ifdef SIMP_BOND 
       else 
       if (dynamic_cast<Linear*>(&species)) {
          ptr = new LinearGenerator(species, system);
@@ -44,7 +45,7 @@ namespace McMd
       if (dynamic_cast<Point*>(&species)) {
          ptr = new PointGenerator(species, system);
       }
-      #ifdef INTER_BOND 
+      #ifdef SIMP_BOND 
       else 
       if (dynamic_cast<Linear*>(&species)) {
          ptr = new LinearGenerator(species, system);

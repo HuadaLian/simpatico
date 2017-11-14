@@ -161,8 +161,22 @@ namespace McMd
       //@}
 
    private:
-  
+ 
+      /**
+      * Pair interaction object (e.g., Interaction == LJPair)
+      */ 
       Interaction interaction_;
+
+      /**
+      * Generalized stress computation, for variable type T.
+      *
+      * Allowed types: T =, double, Vector or Tensor 
+      * For T == Tensor, computes stress tensor
+      * For T == Vector, computes xx, yy, zz components
+      * For T == double, computes pressure
+      */
+      template <typename T>
+      void computeStressImpl(T& stress);
 
    };
 
@@ -417,10 +431,11 @@ namespace McMd
    * Compute nonbonded pair stress.
    */
    template <class Interaction>
-   void McPairPotentialImpl<Interaction>::computeStress()
+   template <typename T>
+   void McPairPotentialImpl<Interaction>::computeStressImpl(T& stress)
    {
-      Tensor stress;
-      Vector force, dr;
+      Vector dr;
+      Vector force;
       double rsq;
       const Atom *atom0Ptr, *atom1Ptr;
       int nNeighbor, nInCell, ia, ja, type0, type1;
@@ -470,18 +485,33 @@ namespace McMd
       // Normalize by volume.
       stress /= boundary().volume();
       normalizeStress(stress);
+   }
 
-      // Store local Tensor variable stress in Setable<Tensor> class member stress_.
+   /*
+   * Compute nonbonded pair stress.
+   */
+   template <class Interaction>
+   void McPairPotentialImpl<Interaction>::computeStress()
+   {
+      Tensor stress;
+      computeStressImpl(stress);
+
       stress_.set(stress);
    }
 
+   /*
+   * Get non-const reference to Interaction.
+   */
    template <class Interaction>
    inline Interaction& McPairPotentialImpl<Interaction>::interaction()
-   { return interaction_; }
+   {  return interaction_; }
 
+   /*
+   * Get const reference to Interaction.
+   */
    template <class Interaction>
    inline const Interaction& McPairPotentialImpl<Interaction>::interaction() const
-   { return interaction_; }
+   {  return interaction_; }
 
    /*
    * Return pair interaction class name.

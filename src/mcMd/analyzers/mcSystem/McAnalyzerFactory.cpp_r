@@ -8,25 +8,26 @@
 #include "McAnalyzerFactory.h" // Class header
 
 #include "McEnergyOutput.h"
+#include "McEnergyAnalyzer.h"
 #include "McEnergyAverage.h"
 #include "McPressureAverage.h"
 #include "McVirialStressTensorAverage.h"
 
-#ifndef INTER_NOPAIR
+#ifndef SIMP_NOPAIR
 #include "McPairEnergyAverage.h"
 #include "McMuExchange.h"
 #endif
 
-#ifdef INTER_BOND
+#ifdef SIMP_BOND
 #include "McIntraBondStressAutoCorr.h"
 #include "McBondEnergyAverage.h"
 #include "McIntraBondTensorAutoCorr.h"
-#ifndef INTER_NOPAIR
+#ifndef SIMP_NOPAIR
 #include "McNVTChemicalPotential.h"
 #endif
 #endif
 
-#ifdef INTER_EXTERNAL
+#ifdef SIMP_EXTERNAL
 #include "McExternalEnergyAverage.h"
 #endif
 
@@ -65,6 +66,9 @@ namespace McMd
       if (className == "McEnergyOutput") {
          ptr = new McEnergyOutput(system());
       } else
+      if (className == "McEnergyAnalyzer") {
+         ptr = new McEnergyAnalyzer(system());
+      } else
       if (className == "McEnergyAverage") {
          ptr = new McEnergyAverage(system());
       } else
@@ -75,7 +79,7 @@ namespace McMd
          ptr = new McVirialStressTensorAverage(system());
       } 
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       else
       if (className == "McPairEnergyAverage") {
          ptr = new McPairEnergyAverage(system());
@@ -85,7 +89,7 @@ namespace McMd
       } 
       #endif
 
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       else 
       if (className == "McBondEnergyAverage") {
          ptr = new McBondEnergyAverage(system());
@@ -96,7 +100,7 @@ namespace McMd
       if (className == "McIntraBondTensorAutoCorr") {
          ptr = new McIntraBondTensorAutoCorr(system());
       } 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       else
       if (className == "McNVTChemicalPotential") {
          ptr = new McNVTChemicalPotential(system());
@@ -104,7 +108,7 @@ namespace McMd
       #endif 
       #endif 
 
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       else
       if (className == "McExternalEnergyAverage") {
          ptr = new McExternalEnergyAverage(system());

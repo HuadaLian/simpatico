@@ -13,16 +13,16 @@
 #include <util/param/ParamComposite.h>  // base class
 #include <mcMd/chemistry/Atom.h>        // member container template argument
 #include <mcMd/chemistry/Molecule.h>    // member container template argument
-#ifndef INTER_NOPAIR
+#ifndef SIMP_NOPAIR
 #include <mcMd/chemistry/MaskPolicy.h>  // member 
 #endif
-#ifdef INTER_BOND
+#ifdef SIMP_BOND
 #include <mcMd/chemistry/Bond.h>        // typedef
 #endif
-#ifdef INTER_ANGLE
+#ifdef SIMP_ANGLE
 #include <mcMd/chemistry/Angle.h>       // typedef
 #endif
-#ifdef INTER_DIHEDRAL
+#ifdef SIMP_DIHEDRAL
 #include <mcMd/chemistry/Dihedral.h>    // typedef
 #endif
 #include <mcMd/chemistry/AtomType.h>    // member container template parameter
@@ -39,16 +39,19 @@ namespace Util
    class Vector;
 }
 
+namespace Simp {
+   class Species;
+}
+
 namespace McMd
 {
 
-   using namespace Util;
-
-   class Species;
-   class SpeciesManager;
-
    class Analyzer;
    class AnalyzerManager;
+   class SpeciesManager;
+
+   using namespace Util;
+   using namespace Simp;
 
    /**
    * The main object in a simulation, which coordinates others.
@@ -289,14 +292,14 @@ namespace McMd
       */
       virtual bool isValid() const;
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       /**
       * Return the value of the mask policy (MaskNone or MaskBonded).
       */
       MaskPolicy maskedPairPolicy() const;
       #endif
 
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       /**
       * Get the number of bond types.
       */
@@ -308,7 +311,7 @@ namespace McMd
       int bondCapacity() const;
       #endif
 
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       /**
       * Get the number of angle types.
       */
@@ -320,7 +323,7 @@ namespace McMd
       int angleCapacity() const;
       #endif
 
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       /**
       * Get the number of dihedral types.
       */
@@ -332,14 +335,14 @@ namespace McMd
       int dihedralCapacity() const;
       #endif
 
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       /**
       * Does a Coulomb potential exist?
       */
       int hasCoulomb() const;
       #endif
 
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       /**
       * Does an external potential exist?
       */
@@ -353,7 +356,7 @@ namespace McMd
       int nLinkType() const;
       #endif
 
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       /**
       * Does a tether potential exist?
       */
@@ -491,7 +494,7 @@ namespace McMd
       */
       int atomCapacity_;
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       /**
       * Policy for suppressing pair interactions for some atom pairs.
       *
@@ -503,7 +506,7 @@ namespace McMd
       MaskPolicy maskedPairPolicy_;
       #endif
 
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       /**
       * Array of all Bond objects.
       *
@@ -536,7 +539,7 @@ namespace McMd
       int bondCapacity_;
       #endif
 
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       /**
       * Array of all Angle objects.
       *
@@ -569,7 +572,7 @@ namespace McMd
       int angleCapacity_;
       #endif
 
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       /**
       * Array of all Dihedral objects.
       *
@@ -602,12 +605,12 @@ namespace McMd
       int dihedralCapacity_;
       #endif
 
-      #ifdef INTER_COULOMB
+      #ifdef SIMP_COULOMB
       /// Does an Coulomb potential exist? (0 false or 1 true)
       int  hasCoulomb_;
       #endif
 
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       /**
       * Does an external potential exist? (0 if false or 1 if true)
       */
@@ -619,7 +622,7 @@ namespace McMd
       int nLinkType_;
       #endif
 
-      #ifdef INTER_TETHER
+      #ifdef SIMP_TETHER
       /// Does a tether potential exist? (0 false or 1 true)
       int hasTether_;
       #endif
@@ -650,7 +653,7 @@ namespace McMd
       */
       void initializeSpecies(int speciesId);
    
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       /**
       * Initialize all Bond objects in all Molecules of one Species.
       *
@@ -659,7 +662,7 @@ namespace McMd
       void initializeSpeciesBonds(int speciesId);
       #endif
 
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       /**
       * Initialize all Angle objects in all Molecules of one Species.
       *
@@ -668,7 +671,7 @@ namespace McMd
       void initializeSpeciesAngles(int speciesId);
       #endif
 
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       /**
       * Initialize all Dihedral objects in all Molecules of one Species.
       *
@@ -685,27 +688,27 @@ namespace McMd
    inline int Simulation::nAtomType() const
    {  return nAtomType_; }
 
-   #ifdef INTER_BOND
+   #ifdef SIMP_BOND
    inline int Simulation::nBondType() const
    {  return nBondType_; }
    #endif
 
-   #ifdef INTER_ANGLE
+   #ifdef SIMP_ANGLE
    inline int Simulation::nAngleType() const
    {  return nAngleType_; }
    #endif
 
-   #ifdef INTER_DIHEDRAL
+   #ifdef SIMP_DIHEDRAL
    inline int Simulation::nDihedralType() const
    {  return nDihedralType_; }
    #endif
 
-   #ifdef INTER_COULOMB
+   #ifdef SIMP_COULOMB
    inline int Simulation::hasCoulomb() const
    {  return hasCoulomb_; }
    #endif
 
-   #ifdef INTER_EXTERNAL
+   #ifdef SIMP_EXTERNAL
    inline int Simulation::hasExternal() const
    {  return hasExternal_; }
    #endif
@@ -715,7 +718,7 @@ namespace McMd
    {  return nLinkType_; }
    #endif
 
-   #ifdef INTER_TETHER
+   #ifdef SIMP_TETHER
    inline int Simulation::hasTether() const
    {  return hasTether_; }
    #endif
@@ -729,22 +732,22 @@ namespace McMd
    inline int Simulation::atomCapacity() const
    {  return atomCapacity_; }
 
-   #ifdef INTER_BOND
+   #ifdef SIMP_BOND
    inline int Simulation::bondCapacity() const
    {  return bondCapacity_; }
    #endif
 
-   #ifdef INTER_ANGLE
+   #ifdef SIMP_ANGLE
    inline int Simulation::angleCapacity() const
    {  return angleCapacity_; }
    #endif
 
-   #ifdef INTER_DIHEDRAL
+   #ifdef SIMP_DIHEDRAL
    inline int Simulation::dihedralCapacity() const
    {  return dihedralCapacity_; }
    #endif
 
-   #ifndef INTER_NOPAIR
+   #ifndef SIMP_NOPAIR
    inline MaskPolicy Simulation::maskedPairPolicy() const
    {  return maskedPairPolicy_; }
    #endif

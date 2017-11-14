@@ -10,14 +10,19 @@
 
 #include "Generator.h"
 
+namespace Simp {
+   class Species;
+}
+
 namespace McMd
 {
 
-   class Species;
    class System;
    class Molecule;
    class CellList;
+
    using namespace Util;
+   using namespace Simp;
 
    /**
    * Generator for monoatomic molecules (atoms).
@@ -35,7 +40,7 @@ namespace McMd
       * \param species  molecular Species to be generated
       * \param system  parent System object
       */
-      PointGenerator(Species& species, System& system);
+      PointGenerator(Simp::Species& species, System& system);
 
    protected:
 
@@ -50,7 +55,7 @@ namespace McMd
       * \return true for success, false for failure
       */
       bool attemptPlaceMolecule(Molecule& molecule, 
-                                const DArray<double>& diameters,
+                                Array<double> const & diameters,
                                 CellList& cellList);
 
    };

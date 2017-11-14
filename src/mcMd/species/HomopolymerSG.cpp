@@ -7,13 +7,14 @@
 
 #include "HomopolymerSG.h"
 #ifdef UTIL_MPI
-#include <mcMd/simulation/McMd_mpi.h>
+#include <mcMd/simulation/mcMd_mpi.h>
 #endif
 
 namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /* 
    * Constructor.
@@ -46,10 +47,10 @@ namespace McMd
    {
       read<int>(in,"nAtom", nAtom_);
       nBond_ = nAtom_ - 1;
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       nAngle_ = nAtom_ - 2;
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       if (nAtom_ > 3)
          nDihedral_ = nAtom_ - 3;
       else
@@ -84,7 +85,7 @@ namespace McMd
    int HomopolymerSG::calculateBondTypeId(int index) const
    { return 0; }
 
-   #ifdef INTER_ANGLE
+   #ifdef SIMP_ANGLE
    /* 
    * Return 0 for every angle.
    *
@@ -94,7 +95,7 @@ namespace McMd
    { return 0; }
    #endif
 
-   #ifdef INTER_DIHEDRAL
+   #ifdef SIMP_DIHEDRAL
    /* 
    * Return 0 for every dihedral.
    *

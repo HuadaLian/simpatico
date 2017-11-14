@@ -8,21 +8,25 @@
 * Distributed under the terms of the GNU General Public License.
 */
 
-#include <util/containers/DArray.h>  // function argument, template
+#include <util/containers/Array.h>   // function argument, template
 #include <util/boundary/Boundary.h>  // typedef
+
+namespace Simp {
+   class Species;
+}
 
 namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
-   class Species;
    class Simulation;
    class System;
    class Atom;
    class Molecule;
    class CellList;
-   #ifdef INTER_BOND
+   #ifdef SIMP_BOND
    class BondPotential;
    #endif
 
@@ -50,7 +54,7 @@ namespace McMd
       */
       virtual ~Generator();
 
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       /**
       * Create an association with a BondPotential.
       *
@@ -69,7 +73,7 @@ namespace McMd
       * \param cellList  CellList object
       */
       virtual bool generate(int nMolecule,
-                            const DArray<double>& diameters,
+                            Array<double> const & diameters,
                             CellList& cellList);
 
       // Static member function
@@ -85,7 +89,7 @@ namespace McMd
       static
       void setupCellList(int atomCapacity, 
                          Boundary& boundary,
-                         const DArray<double>& diameters, 
+                         const Array<double>& diameters, 
                          CellList& cellList);
 
    protected:
@@ -108,7 +112,7 @@ namespace McMd
       * \return true on success, false on failure.
       */
       bool attemptPlaceAtom(Atom& atom, 
-                            const DArray<double>& diameters,
+                            const Array<double>& diameters,
                             CellList& cellList);
 
       /**
@@ -121,7 +125,7 @@ namespace McMd
       */
       virtual
       bool attemptPlaceMolecule(Molecule& molecule, 
-                                const DArray<double>& diameters,
+                                const Array<double>& diameters,
                                 CellList& cellList) = 0;
 
       /**
@@ -144,7 +148,7 @@ namespace McMd
       */
       const Boundary& boundary() const;
 
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       /**
       * Get the associated BondPotential by reference.
       */
@@ -166,7 +170,7 @@ namespace McMd
       Boundary* boundaryPtr_;
 
       /// Pointer to associated BondPotential
-      #ifdef INTER_BOND
+      #ifdef SIMP_BOND
       const BondPotential* bondPotentialPtr_;
       #endif
 
@@ -198,7 +202,7 @@ namespace McMd
    inline const Boundary& Generator::boundary() const
    {  return *boundaryPtr_; }
 
-   #ifdef INTER_BOND
+   #ifdef SIMP_BOND
    /*
    * Get the associated BondPotential by reference.
    */

@@ -11,10 +11,11 @@
 #include <mcMd/mcSimulation/McSystem.h>
 #include <mcMd/mcSimulation/mc_potentials.h>
 #include <mcMd/simulation/Simulation.h>
-#include <mcMd/species/Species.h>
-#include <mcMd/species/Linear.h>
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Atom.h>
+
+#include <simp/species/Species.h>
+#include <simp/species/Linear.h>
 
 #include <util/boundary/Boundary.h>
 #include <util/space/Vector.h>
@@ -23,6 +24,7 @@ namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /*
    * Constructor
@@ -32,7 +34,7 @@ namespace McMd
       speciesId_(-1),
       nTrial_(-1)
    {
-      #ifndef INTER_BOND
+      #ifndef SIMP_BOND
       UTIL_THROW("CfbLinear requires that bonds be enabled");
       #endif
    }
@@ -62,16 +64,16 @@ namespace McMd
          UTIL_THROW("Species is not Linear in CfbLinear");
       }
 
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       hasAngles_ = system().hasAnglePotential() && species.nAngle() > 0;
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       hasDihedrals_ = system().hasDihedralPotential() && species.nDihedral() > 0;
       if (hasDihedrals_) {
          UTIL_THROW("CfbLinear does not (yet) work with dihedrals");
       }
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       hasExternal_ = system().hasExternalPotential();
       #endif
 
@@ -140,14 +142,14 @@ namespace McMd
       u1 = v1;
       u1 /= r1;      // bond unit vector
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       McPairPotential& pairPotential = system().pairPotential();
       energy = pairPotential.atomEnergy(atom0);
       #else
       energy = 0.0;
       #endif
 
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       Vector u2;
       AnglePotential* anglePotentialPtr = 0;
       int angleTypeId;
@@ -177,7 +179,7 @@ namespace McMd
       }
       #endif
 
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       ExternalPotential* externalPotentialPtr = 0;
       if (hasExternal_) {
          externalPotentialPtr = &system().externalPotential();
@@ -205,12 +207,12 @@ namespace McMd
          boundary().shift(pos0);
 
          // Compute trial energy (excluding bond energy)
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          trialEnergy = system().pairPotential().atomEnergy(atom0);
          #else
          trialEnergy = 0.0;
          #endif
-         #ifdef INTER_ANGLE
+         #ifdef SIMP_ANGLE
          if (hasAngles_) {
             if (hasAngle) {
                assert(anglePotentialPtr);
@@ -219,7 +221,7 @@ namespace McMd
             }
          }
          #endif
-         #ifdef INTER_EXTERNAL
+         #ifdef SIMP_EXTERNAL
          if (hasExternal_) {
             assert(externalPotentialPtr);
             trialEnergy += externalPotentialPtr->atomEnergy(atom0);
@@ -254,11 +256,11 @@ namespace McMd
       beta = energyEnsemble().beta();
       r1 = system().bondPotential().randomBondLength(&random(), beta, bondTypeId);
 
-      #ifndef INTER_NOPAIR
+      #ifndef SIMP_NOPAIR
       McPairPotential& pairPotential = system().pairPotential();
       #endif
 
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       // Compute vector v2 = pos2 - pos1, r2 = |v2|
       Vector u2;
       AnglePotential* anglePotentialPtr = 0;
@@ -287,7 +289,7 @@ namespace McMd
       }
       #endif
 
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       ExternalPotential* externalPotentialPtr = 0;
       if (hasExternal_) {
          externalPotentialPtr = &system().externalPotential();
@@ -311,12 +313,12 @@ namespace McMd
          pos0 = trialPos[iTrial];
 
          // Compute trial energy (excluding bond energy)
-         #ifndef INTER_NOPAIR
+         #ifndef SIMP_NOPAIR
          trialEnergy[iTrial] = pairPotential.atomEnergy(atom0);
          #else
          trialEnergy[iTrial] = 0.0;
          #endif
-         #ifdef INTER_ANGLE
+         #ifdef SIMP_ANGLE
          if (hasAngles_) {
             if (hasAngle) {
                assert(anglePotentialPtr);
@@ -326,7 +328,7 @@ namespace McMd
             }
          }
          #endif
-         #ifdef INTER_EXTERNAL
+         #ifdef SIMP_EXTERNAL
          if (hasExternal_) {
             assert(externalPotentialPtr);
             trialEnergy[iTrial] +=

@@ -9,7 +9,7 @@
 */
 
 #include <mcMd/potentials/angle/AnglePotential.h>  // base class
-#include <mcMd/simulation/SubSystem.h>             // base class
+#include <mcMd/simulation/SystemInterface.h>             // base class
 #include <util/global.h>
 
 namespace Util
@@ -31,7 +31,7 @@ namespace McMd
    * \ingroup McMd_Angle_Module
    */
    template <class Interaction>
-   class AnglePotentialImpl : public AnglePotential, public SubSystem
+   class AnglePotentialImpl : public AnglePotential, private SystemInterface
    {
 
    public:
@@ -55,8 +55,8 @@ namespace McMd
       * Read angle potential parameters.
       * 
       * This method reads the angle potential Interaction parameter 
-      * block.  Before calling Evalutor::readParameters(), it passes 
-      * simulation().nBondType() to Interaction::setNAtomType().
+      * block. Before calling Interaction::readParameters(), it passes 
+      * simulation().nAngleType() to Interaction::setNAngleType().
       *
       * \param in input parameter stream.
       */
@@ -91,11 +91,11 @@ namespace McMd
       * Returns forces along two bonds at the angle, for use in MD and stress
       * calculation.
       *
-      * \param R1     bond vector from atom 1 to 2.
-      * \param R2     bond vector from atom 2 to 3.
-      * \param F1     return force along R1 direction.
-      * \param F2     return force along R2 direction.
-      * \param type   integer angle type index
+      * \param R1  bond vector from atom 1 to 2.
+      * \param R2  bond vector from atom 2 to 3.
+      * \param F1  return force along R1 direction.
+      * \param F2  return force along R2 direction.
+      * \param type  integer angle type index
       */
       void force(const Vector& R1, const Vector& R2,
                        Vector& F1, Vector& F2, int type) const;
@@ -174,30 +174,14 @@ namespace McMd
       virtual void addForces();
 
       /**
-      * Return total angle potential energy of this System.
+      * Calculate and store total angle energy.
       */
-      virtual double energy() const;
+      virtual void computeEnergy();
 
       /**
-      * Compute total angle pressure
-      *
-      * \param stress (output) pressure.
+      * Compute and store the total angle pressure.
       */
-      virtual void computeStress(double& stress) const;
-
-      /**
-      * Compute x, y, z angle pressures.
-      *
-      * \param stress (output) pressures.
-      */
-      virtual void computeStress(Util::Vector& stress) const;
-
-      /**
-      * Compute angle stress tensor.
-      *
-      * \param stress (output) pressures.
-      */
-      virtual void computeStress(Util::Tensor& stress) const;
+      virtual void computeStress();
 
       //@}
 
@@ -207,6 +191,9 @@ namespace McMd
 
       bool isCopy_;
  
+      /**
+      * Generic stress calculation, T=Tensor, Vector or double.
+      */  
       template <typename T>
       void computeStressImpl(T& stress) const;
 
@@ -238,7 +225,7 @@ namespace McMd
    template <class Interaction>
    AnglePotentialImpl<Interaction>::AnglePotentialImpl(System& system)
     : AnglePotential(),
-      SubSystem(system),
+      SystemInterface(system),
       interactionPtr_(0),
       isCopy_(false)
    {  interactionPtr_ = new Interaction(); }
@@ -250,7 +237,7 @@ namespace McMd
    AnglePotentialImpl<Interaction>::AnglePotentialImpl(
                          AnglePotentialImpl<Interaction>& other)
     : AnglePotential(),
-      SubSystem(other.system()),
+      SystemInterface(other.system()),
       interactionPtr_(&other.interaction()),
       isCopy_(true)
    {}
@@ -326,7 +313,7 @@ namespace McMd
    {  interaction().force(R1, R2, F1, F2, type); }
 
    /*
-   * Returns a random bond Angle.
+   * Returns a random angle.
    */
    template <class Interaction> 
    double AnglePotentialImpl<Interaction>::randomAngle(Random *random, 
@@ -334,7 +321,7 @@ namespace McMd
    {  return interaction().randomAngle(random, beta, type); } 
 
    /*
-   * Returns Cosine a random bond Angle.
+   * Returns Cosine of a random angle.
    */
    template <class Interaction> 
    double AnglePotentialImpl<Interaction>::randomCosineAngle(Random *random,
@@ -370,10 +357,10 @@ namespace McMd
    }
 
    /* 
-   * Calculate angle energy.
+   * Compute and store angle energy.
    */
    template <class Interaction>
-   double AnglePotentialImpl<Interaction>::energy() const
+   void AnglePotentialImpl<Interaction>::computeEnergy()
    {
       Vector dr1; // R[1] - R[0]
       Vector dr2; // R[2] - R[1]
@@ -397,7 +384,8 @@ namespace McMd
          }
       }
 
-      return energy;
+      // return energy;
+      energy_.set(energy);
    }
 
    /* 
@@ -436,7 +424,12 @@ namespace McMd
    }
 
    /* 
-   * Compute angle contribution to stress.
+   * Generic stress / pressure computation.
+   *
+   * Allowed types: 
+   *    T == Tensor -> compute stress tensor
+   *    T == Vector -> compute xx, yy, zz diagonal components
+   *    T == double -> compute pressure (P_xx + P_yy + P_zz)/3
    */
    template <class Interaction>
    template <typename T>
@@ -480,19 +473,18 @@ namespace McMd
       normalizeStress(stress);
    }
 
+   /*
+   * Compute total angle stress.
+   */
    template <class Interaction>
-   void AnglePotentialImpl<Interaction>::computeStress(double& stress) const
-   {  computeStressImpl(stress); }
+   void AnglePotentialImpl<Interaction>::computeStress()
+   {
+      Tensor stress;
+      computeStressImpl(stress);
 
-   template <class Interaction>
-   void AnglePotentialImpl<Interaction>::computeStress(Util::Vector& stress) 
-        const
-   {  computeStressImpl(stress); }
-
-   template <class Interaction>
-   void AnglePotentialImpl<Interaction>::computeStress(Util::Tensor& stress) 
-        const
-   {  computeStressImpl(stress); }
+      // Set value of Setable<double> energy_ 
+      stress_.set(stress);
+   }
 
    template <class Interaction>
    inline Interaction& AnglePotentialImpl<Interaction>::interaction()

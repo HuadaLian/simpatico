@@ -10,16 +10,19 @@
 #include <mcMd/mcSimulation/McSystem.h>
 #include <mcMd/mcSimulation/mc_potentials.h>
 #include <util/boundary/Boundary.h>
-#include <mcMd/species/Species.h>
-#include <mcMd/species/Linear.h>
 #include <mcMd/chemistry/Molecule.h>
 #include <mcMd/chemistry/Atom.h>
+
+#include <simp/species/Species.h>
+#include <simp/species/Linear.h>
+
 #include <util/global.h>
 
 namespace McMd
 {
 
    using namespace Util;
+   using namespace Simp;
 
    /* 
    * Constructor
@@ -36,12 +39,12 @@ namespace McMd
       * but the required checks or modifications are not implemented.
       */
 
-      #ifdef INTER_ANGLE
+      #ifdef SIMP_ANGLE
       if (system.hasAnglePotential()) {
          UTIL_THROW("CfbEndBase unusable with heterogeneous dihedrals");
       }
       #endif
-      #ifdef INTER_DIHEDRAL
+      #ifdef SIMP_DIHEDRAL
       if (system.hasDihedralPotential()) {
          UTIL_THROW("CfbEndBase unusable with heterogeneous dihedrals");
       }
@@ -133,10 +136,10 @@ namespace McMd
 
       // Calculate old molecule energy = pair + external 
       oldEnergy = 0.0;
-      #ifndef INTER_NOPAIR 
+      #ifndef SIMP_NOPAIR 
       oldEnergy += system().pairPotential().moleculeEnergy(*molPtr);
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       if (system().hasExternalPotential()) {
          for (i = 0; i < nAtom; ++i) {
             atomPtr = &molPtr->atom(i);
@@ -153,10 +156,10 @@ namespace McMd
 
       // Calculate new energy (with reversed sequence of atom types).
       newEnergy = 0.0;
-      #ifndef INTER_NOPAIR 
+      #ifndef SIMP_NOPAIR 
       newEnergy += system().pairPotential().moleculeEnergy(*molPtr);
       #endif
-      #ifdef INTER_EXTERNAL
+      #ifdef SIMP_EXTERNAL
       if (system().hasExternalPotential()) {
          for (i = 0; i < nAtom; ++i) {
             molPtr->atom(i).setTypeId(atomTypeIds_[nAtom - 1 - i]);   
@@ -185,7 +188,7 @@ namespace McMd
          for (i = 0; i < nAtom; ++i) {
             atomPtr = &molPtr->atom(i);
             atomPtr->position() = positions_[nAtom - 1 - i];
-            #ifndef INTER_NOPAIR
+            #ifndef SIMP_NOPAIR
             system().pairPotential().updateAtomCell(*atomPtr);
             #endif
          }
